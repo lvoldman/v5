@@ -14,7 +14,7 @@ from abc import ABC, abstractmethod
 from collections import namedtuple
 
 from zaber_motion.ascii import Connection, Device
-import zaber_motion, yaml, sys
+import zaber_motion, yaml, sys, bs1_faulhaber
 
 from bs1_faulhaber import FH_Motor, FH_cmd
 
@@ -51,11 +51,12 @@ print_DEBUG = void_f
 ZABER_ID = 1027
 FAULHABER_ID = 2134
 #==============================
-fh_baudrate = 9600
-fh_timeout = 2
-fh_break_duration = 0.25
+fh_baudrate = bs1_faulhaber.fh_baudrate
+fh_timeout = bs1_faulhaber.fh_timeout
+fh_break_duration = bs1_faulhaber.fh_break_duration
 #==============================
 
+getDevbySN = lambda devs, sn: next((_dev for _dev, _sn in devs.items() if _sn == sn), None)
 
 
 class SysConfigBasic(ABC):
@@ -283,6 +284,7 @@ class pcPlatformDevs(SysConfigBasic):
         super().__init__(_config_file, _params_file)
         self.__config_file = _config_file
         self.__params_file = _params_file
+        self._serialPorts:dict = dict()   # {port: {'vid':, 'description':, 'hwid':, 'serial_number':, 'location':, 'manufacturer':, 'product':, 'interface':} }
         self.freeStyleDevs:set = set()
         
 
@@ -349,6 +351,7 @@ class pcPlatformDevs(SysConfigBasic):
 
             # Seial port devices: ZB, FAULHABER (TR, GR, SP), HMP, DH, JTSE
             serialDevsClasses = set(['ZB', 'TR', 'GR', 'SP', 'HMP', 'DH', 'JTSE'])
+            faulhaberTypes = [ 'TR', 'GR', 'SP']
             configuredDevs = set(self.allDevs.keys())
 
             # if 'ZB'  not in configuredDevsList and 'TR' not in configuredDevsList and \
@@ -365,95 +368,61 @@ class pcPlatformDevs(SysConfigBasic):
                 print_log ("============ Serial Ports available ==================")
                 print_log (f"Name/device={ps.name}/{ps.device} ** description={ps.description} ** hwid={ps.hwid} ** vid={ps.vid} ")
                 print_log (f" serial_number={ps.serial_number} ** location={ps.location} ** manufacturer={ps.manufacturer} ** product={ps.product} ** interface={ps.interface} ")
+                self._serialPorts[ps.device] = {'vid': ps.vid, 'description': ps.description, 'hwid': ps.hwid, \
+                                                'serial_number': ps.serial_number, 'location': ps.location,
+                                                'manufacturer': ps.manufacturer, 'product': ps.product, 'interface': ps.interface}           
+
+                if ps.vid == FAULHABER_ID:                      # vid = 2134 // Faulhaber
+                    if len(faulhaberTypes & configuredDevs) > 0:        #  if Faulhaber devices are configured
+                        _fhSN = bs1_faulhaber.FH_Motor.recognizeDev(ps)
+                        if _fhSN is not None:
+                            print_log (f'Faulhaber device with S/N = {_fhSN} found on port {ps.device}')    
+
+                            if serN in self.allDevs['TR'].values():
+                                _devName = getDevbySN(self.allDevs['TR'], serN)
 
 
-                if ps.vid == FAULHABER_ID:
-                    try:
+                                i_dev = CDev('--TROLLEY--', ps.device, ps.vid, serN, TROLLEY.index(serN)+1)
+                                dev_trolley = FH_Motor(ps.device, fh_baudrate, fh_timeout, params_table, f'T{TROLLEY.index(serN)+1}',  cur_pos = start_pos)
+                                i_dev.dev_mDC = dev_trolley
 
-                        ser = serial.Serial(port=ps.device, baudrate = fh_baudrate, timeout = fh_timeout)
-                        name = ser.name
-                        print_log (f"name = {name}")
-                        ser.send_break(duration = fh_break_duration)                   
-                        answ = ser.readline()
-                        print_log(f'Serial port init returns - {answ}')
-                        if not answ.__str__().__contains__("FAULHABER"):
-                            print_log(f'FAULHABBER on port {ps.device} is NOT ACTIVE')
-                            ser.close()
-                            ser.__del__()
-                            continue
-                        res, answ = FH_cmd(ser, 'en')
-                        res, answ = FH_cmd(ser, 'GRC')
-                        current_A = int(answ)
-                        print_log(f'Electric current read result = {answ}/{current_A}')
-                        
-                        print_log(f" digital GRC={current_A}")
+                                if not dev_trolley.init_dev(i_dev.C_type):
+                                    print_log(f'Trolley initiation failed on port {ps.device}')
+                                    del dev_trolley
+                                    continue
 
-                        res, answ = FH_cmd(ser, 'GSER')
-                        serN = int(answ)
-                        print_log(f'Serial number = {answ}/{serN}')
-                        
-                        res, answ = FH_cmd(ser, 'POS')
-                        start_pos = int (answ)
-                        print_log(f'Current actual position = {answ}/{start_pos}')
-                        res, answ = FH_cmd(ser, 'GU')
-                        print_log(f'PWM value = {answ}')
+                                devs.append(i_dev)
 
+                            elif serN in GRIPPER:
+                                # i_dev = CDev('--GRIPPER--', ps.device, ps.vid, ps.serial_number, GRIPPER.index(serN)+1)
+                                i_dev = CDev('--GRIPPER--', ps.device, ps.vid, serN, GRIPPER.index(serN)+1)
+                                dev_gripper = FH_Motor(ps.device, fh_baudrate, fh_timeout, params_table, f'G{GRIPPER.index(serN)+1}')
+                                i_dev.dev_mDC = dev_gripper
 
+                                if not dev_gripper.init_dev(i_dev.C_type):
+                                    print_log(f'Gripper initiation failed on port {ps.device}')
+                                    del dev_gripper
+                                    continue
 
-                        res, answ = FH_cmd(ser, 'di')
-                        ser.close()
-                        ser.__del__()
+                                devs.append(i_dev)
 
-                    except Exception as ex:
-                        print_log(f"Connection to port {ps.device} was lost")
-                        print_log(f"Unexpected Exception: {ex}")
-                        continue
-                else:
-                    if serN in TROLLEY:
-                        # i_dev = CDev('--TROLLEY--', ps.device, ps.vid, ps.serial_number, TROLLEY.index(serN)+1)
-                        i_dev = CDev('--TROLLEY--', ps.device, ps.vid, serN, TROLLEY.index(serN)+1)
-                        dev_trolley = FH_Motor(ps.device, fh_baudrate, fh_timeout, params_table, f'T{TROLLEY.index(serN)+1}',  cur_pos = start_pos)
-                        i_dev.dev_mDC = dev_trolley
+                            elif serN in SPINNER:
+                                i_dev = CDev('--TIME_ROTATOR--', ps.device, ps.vid, serN, SPINNER.index(serN)+1)
+                                i_dev.dev_mDC = FH_Motor(ps.device, fh_baudrate, fh_timeout, params_table, f'S{SPINNER.index(serN)+1}')
 
-                        if not dev_trolley.init_dev(i_dev.C_type):
-                            print_log(f'Trolley initiation failed on port {ps.device}')
-                            del dev_trolley
-                            continue
+                                if not i_dev.dev_mDC.init_dev(i_dev.C_type):
+                                    print_log(f'TIME ROTATOR initiation failed on port {ps.device}')
+                                    del i_dev.dev_mDC
+                                    continue
 
-                        devs.append(i_dev)
+                                devs.append(i_dev)
+                            else :
+                                print_log (f'Undefined device on port {ps.device} with s/n {serN}')
+                                continue
+                            
+                            print_log(f'Added FAULHABER device on port {ps.device} with s/n {serN}')
+                            
 
-                    elif serN in GRIPPER:
-                        # i_dev = CDev('--GRIPPER--', ps.device, ps.vid, ps.serial_number, GRIPPER.index(serN)+1)
-                        i_dev = CDev('--GRIPPER--', ps.device, ps.vid, serN, GRIPPER.index(serN)+1)
-                        dev_gripper = FH_Motor(ps.device, fh_baudrate, fh_timeout, params_table, f'G{GRIPPER.index(serN)+1}')
-                        i_dev.dev_mDC = dev_gripper
-
-                        if not dev_gripper.init_dev(i_dev.C_type):
-                            print_log(f'Gripper initiation failed on port {ps.device}')
-                            del dev_gripper
-                            continue
-
-                        devs.append(i_dev)
-
-                    elif serN in SPINNER:
-                        i_dev = CDev('--TIME_ROTATOR--', ps.device, ps.vid, serN, SPINNER.index(serN)+1)
-                        i_dev.dev_mDC = FH_Motor(ps.device, fh_baudrate, fh_timeout, params_table, f'S{SPINNER.index(serN)+1}')
-
-                        if not i_dev.dev_mDC.init_dev(i_dev.C_type):
-                            print_log(f'TIME ROTATOR initiation failed on port {ps.device}')
-                            del i_dev.dev_mDC
-                            continue
-
-                        devs.append(i_dev)
-                    else :
-                        print_log (f'Undefined device on port {ps.device} with s/n {serN}')
-                        continue
-                    
-                    print_log(f'Added FAULHABER device on port {ps.device} with s/n {serN}')
-                    
-
-                finally:
-                    pass
                 
             if ps.vid == ZABER_ID:
                 if ps.description.split()[0] == 'HAMEG':
@@ -530,7 +499,24 @@ class pcPlatformDevs(SysConfigBasic):
                         print_log(f'There no ZABER devices on port {ps.device}')
                         print_log(f"Exception: {ex}")
                         
+            if len(JTSE) > 0:
+                print_log(f'Looking for {JTSE[0]} blower')
+                try:
+                    _com = JTSEcontrol.findDev(JTSE[0])
+                    if _com is None or _com == '':
+                        print_log('No JTSE found')
+                    else:
+                        i_dev = CDev('--JTSE--', _com, None, \
+                                            None, None)
+                        i_dev.dev_jtse = JTSEcontrol(JTSE[0], _com)
+                        devs.append(i_dev)
+                        print_log(f'JBC/JTSE dev ({JTSE[0]}) at port {_com} succesfully added')
 
+                except Exception as ex:
+                    print_log(f"Fail to adding JTSE. Exception: {ex}")
+                    exptTrace(ex)
+            else:
+                print_log(f'No JTSE blower configured')
 
 
         except Exception as ex:

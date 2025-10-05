@@ -157,6 +157,10 @@ MAXON535700 = [
 
 #======================================
 
+fh_baudrate = 9600
+fh_timeout = 2
+fh_break_duration = 0.25
+
 
 EX_LIMIT = 100
 
@@ -326,6 +330,49 @@ class FH_Motor:
             print_err(f'({ self.devName}) FAULHABER on port {self.fh_port} could not be closed. Exception: {ex} of type: {type(ex)}.')
         finally:
             pass
+
+
+
+    @staticmethod
+    def recognizeDev(ps:serial.tools.list_ports.ListPortInfo, dev_name:str = None )->str:
+        _res:str = None
+        _ser = None
+        serN = None
+        try:
+            print_log(f'Looking for FAULHABER {dev_name} at port {ps.device} ')
+            _ser = serial.Serial(port=ps.device, baudrate = fh_baudrate, timeout = fh_timeout)
+            name = _ser.name
+            print_log (f"name = {name}")
+            _ser.send_break(duration = fh_break_duration)                   
+            answ = _ser.readline()
+            print_log(f'Serial port init returns - {answ}')
+            if not answ.__str__().__contains__("FAULHABER"):
+                raise Exception(f'NO ACTIVE FAULHABBER found on port {ps.device}')
+                                                    # no valid FAULHABBER motor can be added
+
+            res, answ = FH_cmd(_ser, 'en')           # enabling motor
+            res, answ = FH_cmd(_ser, 'GRC')         # reading current
+            current_A = int(answ)
+            res, answ = FH_cmd(_ser, 'GSER')     # reading serial N
+            serN = int(answ)                        
+            res, answ = FH_cmd(_ser, 'POS')      # reading position
+            start_pos = int (answ)
+            res, _gu = FH_cmd(_ser, 'GU')          # reading PWM value
+            print_log(f'FAULHABER found on port {ps.device} with S/N = {serN} at position = {start_pos} with Electric current/GRC = {current_A} and PWM value = {_gu}')
+
+            res, answ = FH_cmd(_ser, 'di')       # disabling motor
+
+        except Exception as ex:
+            print_log(f"Error recognizing device at port {ps.device}: {ex}")
+            exptTrace(ex)
+
+
+        if _ser is not None:
+            _ser.close
+            _ser.__del__()
+            
+        return str(serN)
+
 
     def init_dev(self, fh_type) -> bool:
         self.mDev_type = fh_type

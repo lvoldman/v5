@@ -59,6 +59,32 @@ class JTSEcontrol:
         return str(self.rat) 
         # return str(self.rat) + '°'
 
+    '''
+    
+    '''
+    @staticmethod
+    def recognizeDev(ps:serial.tools.list_ports.ListPortInfo, dev_name:str = 'JTSE' )->str:
+        _res:str = None
+        _ser = None
+        try:
+            print_log(f'Looking for JTSE {dev_name} at port {ps.device} ')
+            _ser = serial.Serial(port=ps.device, baudrate = _baudrate, timeout = _timeout, parity=_parity, bytesize= _bytesize, stopbits=_stopbits)
+            _dev = JTSEcontrol.SendRcvCMD(_ser, 'RSMN')
+            if _dev == dev_name:
+                _res = ps.device
+                return _res
+        
+            if _ser is not None:
+                _ser.close
+                _ser.__del__()
+            
+    
+        except Exception as ex:
+            exptTrace(ex)
+            
+            
+        return None        
+
 
     @staticmethod
     def findDev(dev_name:str = 'JTSE' )->str:
