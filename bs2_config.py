@@ -63,8 +63,8 @@ class SysConfigBasic(ABC):
 
     def __init__(self, __conf_file:str=None, _params_file:str=None):
         
-        ###  allDevs dict: {'--TROLLEY--': {"T1": 12345, "T2": 23456}, '--GRIPPER--': {"G1": 34567}, '--ZABER--': {"Z1": 45678, "Z2": 56789}, '--DIST_ROTATOR--': {"R1": 67890}, \
-        #  '--TIME_ROTATOR--': {"S1": 78901}, '--CAM--': {"CAM1": "192.160.1.1"}, '--DAQ-NI--': {"DAQ1": 4098}, '--HMP--': {"H1": "12345"}, '--PHG--': {"P1": "12345"}, '--DH--': {"D1": 12345}, '--MCDMC--': {"MCDMC1": "12345"}, '--MARCO--': {"DISP1": "12345"}, '--INTERLOCK--': {"LCK1": "DAQ1"}, '--IOCONTROL--': {"IO1": "provider, port.line, NO/NC"}}
+        ###  allDevs dict: {'TR': {"T1": 12345, "T2": 23456}, 'GR': {"G1": 34567}, 'ZB': {"Z1": 45678, "Z2": 56789}, 'RT': {"R1": 67890}, \
+        #  'SP': {"S1": 78901}, 'CAM': {"CAM1": "192.160.1.1"}, 'NI': {"DAQ1": 4098}, 'HMP': {"H1": "12345"}, 'PHG': {"P1": "12345"}, '--DH--': {"D1": 12345}, '--MCDMC--': {"MCDMC1": "12345"}, '--MARCO--': {"DISP1": "12345"}, '--INTERLOCK--': {"LCK1": "DAQ1"}, '--IOCONTROL--': {"IO1": "provider, port.line, NO/NC"}}
         self.allDevs:dict = None
         self.allParams:dict = None
     
@@ -378,11 +378,14 @@ class pcPlatformDevs(SysConfigBasic):
                         if _fhSN is not None:
                             print_log (f'Faulhaber device with S/N = {_fhSN} found on port {ps.device}')    
 
-                            if serN in self.allDevs['TR'].values():
-                                _devName = getDevbySN(self.allDevs['TR'], serN)
+                            if _fhSN in self.allDevs['TR'].values():
+                                _devName = getDevbySN(self.allDevs['TR'], _fhSN)
+                                if _devName is None:
+                                    print_err(f'ERROR: Something went wrong while retriving Faulhaber TROLLEY dev name with S/N = {serN} ')
+                                    continue
 
 
-                                i_dev = CDev('--TROLLEY--', ps.device, ps.vid, serN, TROLLEY.index(serN)+1)
+                                i_dev = CDev('--TROLLEY--', ps.device, ps.vid, _fhSN, list(self.allDevs['TR'].keys()).index(_devName)+1)
                                 dev_trolley = FH_Motor(ps.device, fh_baudrate, fh_timeout, params_table, f'T{TROLLEY.index(serN)+1}',  cur_pos = start_pos)
                                 i_dev.dev_mDC = dev_trolley
 
