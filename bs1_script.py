@@ -16,7 +16,7 @@ from typing import List
 import os
 
 
-from bs2_config import getDevsList
+from bs2_config import getDevsList, DevType
 from bs1_utils import print_log, print_inf, print_err, print_DEBUG, exptTrace, s16, s32, void_f
 # print_DEBUG = void_f
 
@@ -156,7 +156,7 @@ def validate_cmd(dev, cmd, parms:dict):                             # validate c
                 return False
             
             _devList:dict = getDevsList()
-            _phg_devs_list = _devList['--PHG--']
+            _phg_devs_list = _devList[DevType.PHG]
             _phg_dev = cmd.split(' ')[0].strip()
 
             if not _phg_dev in _phg_devs_list.keys():
@@ -173,7 +173,7 @@ def validate_cmd(dev, cmd, parms:dict):                             # validate c
                 return False
             
             _devList:dict = getDevsList()
-            _phg_devs_list = _devList['--PHG--']
+            _phg_devs_list = _devList[DevType.PHG]
             _phg_dev = cmd.split(' ')[0].strip()
 
             if not _phg_dev in _phg_devs_list.keys():

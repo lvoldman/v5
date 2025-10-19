@@ -37,7 +37,7 @@ import threading
 class BaseMotor(ABC):
     def __init__(self, port:str, devName:str, parms:dict):
         self._mDev_port:str = port
-        self._mDev_type:str = None                           # devise type (--ROTATOR-- / --GRIPPERv3-- / --DIST_ROTATOR-- / --TIME_ROTATOR-- (SPINNER))/ --DHGRIPPER--
+        self._mDev_type:str = None                           # devise type (DevType.ROTATOR / DevType.GRIPPERv3 / DevType.DIST_ROTATOR / DevType.TIME_ROTATOR (SPINNER))/ DevType.DHGRIPPER
         self._mDev_pos:int = 0                               #  current position 
         self._el_current_limit:int = 0                       # electrical current limit to stop 
         self._el_current_on_the_fly:int = 0                  # On-the-fly current         

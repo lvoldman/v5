@@ -25,8 +25,10 @@ import bs1_status_monitor as sm
 import bs1_mecademic as mc
 
 
+from bs2_config import port_scan, CDev, gif103, read_params, get_dev, getDevsList, load_dev_config, DevType
 
-from bs1_config import port_scan, CDev, gif103, read_params, get_dev, getDevsList, load_dev_config
+
+# from bs1_config import port_scan, CDev, gif103, read_params, get_dev, getDevsList, load_dev_config
 from bs1_faulhaber import FH_Motor
 from bs1_zaber import Zaber_Motor
 from bs1_script import Tbl, Log_tbl, groups, GetSubScript, LoadScriptFile, ClearLog, SaveLog, GetSubScriptDict
@@ -133,14 +135,14 @@ def deActivateScriptControl(window):
     activateScriptControl(window = window, disableInd = True)
 
 def activationControl (window, type, disableInd = False, ledColor = 'green', index = None):
-    if type == '--TIME_ROTATOR--' and '_time_rotator_' in window.AllKeysDict: 
+    if type == DevType.TIME_ROTATOR and '_time_rotator_' in window.AllKeysDict: 
         SetLED (window, f'_time_rotator_', ledColor)
         window[f'-TIME_ROTATOR_LEFT-'].update(disabled = disableInd)
         window[f'-TIME_ROTATOR_RIGHT-'].update(disabled = disableInd)
         window[f'-TIME_ROTATOR_TARGET-'].update(disabled = disableInd)
         window[f'-TIME_ROTATOR_VELOCITY-'].update(disabled = disableInd)
         window[f'-TIME_ROTATOR-CURR-'].update(disabled = disableInd)
-    elif type == '--DIST_ROTATOR--' and f'_dist_rotator_{index}_' in window.AllKeysDict:
+    elif type == DevType.DIST_ROTATOR and f'_dist_rotator_{index}_' in window.AllKeysDict:
         SetLED (window, f'_dist_rotator_{index}_', ledColor)
         window[f'-{index}-DIST_ROTATOR_POS_SET-'].update(disabled = disableInd)
         window[f'-{index}-DIST_ROTATOR_TARGET_RESET-'].update(disabled = disableInd)
@@ -149,7 +151,7 @@ def activationControl (window, type, disableInd = False, ledColor = 'green', ind
         window[f'-{index}-DIST_ROTATOR_TARGET-'].update(disabled = disableInd)
         window[f'-{index}-DIST_ROTATOR_VELOCITY-'].update(disabled = disableInd)
         window[f'-{index}-DIST_ROTATOR-CURR-'].update(disabled = disableInd)
-    elif type == '--TROLLEY--' and f'_trolley_{index}_' in window.AllKeysDict:
+    elif type == DevType.TROLLEY and f'_trolley_{index}_' in window.AllKeysDict:
         SetLED (window, f'_trolley_{index}_', ledColor)
         window[f'-{index}-TROLLEY_POS_SET-'].update(disabled = disableInd)
         window[f'-{index}-TROLLEY_TARGET_RESET-'].update(disabled = disableInd)
@@ -158,13 +160,13 @@ def activationControl (window, type, disableInd = False, ledColor = 'green', ind
         window[f'-{index}-TROLLEY_TARGET-'].update(disabled = disableInd)
         window[f'-{index}-TROLLEY_VELOCITY-'].update(disabled = disableInd)
         window[f'-{index}-TROLLEY-CURR-'].update(disabled = disableInd)
-    elif type == '--GRIPPER--' and f'_gripper_{index}_' in window.AllKeysDict:                                 # no more used for activation/deactivation. use GRIPPERv3 instead
+    elif type == DevType.GRIPPER and f'_gripper_{index}_' in window.AllKeysDict:                                 # no more used for activation/deactivation. use GRIPPERv3 instead
         SetLED (window, f'_gripper_{index}_', ledColor)
         window[f'-{index}-GRIPPER-RPM-'].update(disabled = disableInd)
         window[f'-{index}-GRIPPER-CURR-'].update(disabled = disableInd)
         window[f'-{index}-GRIPPER-OFF-'].update(disabled = disableInd)
         window[f'-{index}-GRIPPER-ON-'].update(disabled = disableInd)
-    elif type == '--GRIPPERv3--' and f'_gripper_{index}_' in window.AllKeysDict:  
+    elif type == DevType.GRIPPERv3 and f'_gripper_{index}_' in window.AllKeysDict:  
         SetLED (window, f'_gripper_{index}_', ledColor)
         window[f'-{index}-GRIPPER_POS_SET-'].update(disabled = disableInd)
         window[f'-{index}-GRIPPER_TARGET_RESET-'].update(disabled = disableInd)
@@ -173,13 +175,13 @@ def activationControl (window, type, disableInd = False, ledColor = 'green', ind
         window[f'-{index}-GRIPPER-CURR-'].update(disabled = disableInd)
         window[f'-{index}-GRIPPER-OFF-'].update(disabled = disableInd)
         window[f'-{index}-GRIPPER-ON-'].update(disabled = disableInd)
-    elif type == '--ZABER--' and f'_zaber_{index}_' in window.AllKeysDict:  
+    elif type == DevType.ZABER and f'_zaber_{index}_' in window.AllKeysDict:  
         SetLED (window, f'_zaber_{index}_', ledColor)
         window[f'-{index:02d}-ZABER-GTD-'].update(disabled = disableInd)
         window[f'-{index:02d}-ZABER-GH-'].update(disabled = disableInd)
         window[f'-{index:02d}-ZABER-DST-'].update(disabled = disableInd)
         window[f'-{index:02d}-ZABER-VELOCITY-'].update(disabled = disableInd)
-    # elif type == '--DAQ-NI--':  
+    # elif type == DevType.DAQ-NI:  
     #     if f'_trigger_' in window.AllKeysDict:  
     #         SetLED (window, f'_trigger_', ledColor)
     #         window[f'TRIGGER'].update(disabled = disableInd)
@@ -188,7 +190,7 @@ def activationControl (window, type, disableInd = False, ledColor = 'green', ind
     #         window[f'HOTAIR-START'].update(disabled = disableInd)
     #         window[f'HOTAIR-STOP'].update(disabled = disableInd)
 
-    # elif type == '--PHG--':  
+    # elif type == DevType.PHG:  
     #     if f'_dispenser_' in window.AllKeysDict:  
     #         SetLED (window, f'_dispenser_', ledColor)
     #         window[f'DISP_TRIG'].update(disabled = disableInd)
@@ -211,9 +213,9 @@ def activationControl (window, type, disableInd = False, ledColor = 'green', ind
     #         SetLED (window, f'_hotair_', ledColor)
     #         window[f'HOTAIR-START'].update(disabled = disableInd)
     #         window[f'HOTAIR-STOP'].update(disabled = disableInd)
-    elif type == '--DAQ-NI--':
+    elif type == DevType.DAQ-NI:
         pass                                                                # no GUI fot NI
-    elif  type == '--PHG--':
+    elif  type == DevType.PHG:
         if f'_phg_{index}_' in window.AllKeysDict: 
             SetLED (window, f'_phg_{index}_', ledColor)
             if f'-{index}-PHG-ON-' in window.AllKeysDict: 
@@ -228,12 +230,12 @@ def activationControl (window, type, disableInd = False, ledColor = 'green', ind
         else:
             pass                   # not present in GUI
     
-    elif type == '--CAM--' and f'_calibr_{index}_' in window.AllKeysDict:
+    elif type == DevType.CAM and f'_calibr_{index}_' in window.AllKeysDict:
         SetLED (window, f'_calibr_{index}_', ledColor)
         window[f'-{index}-CALIBRATE-'].update(disabled = disableInd)
         window[f'-{index}-CALIBR_PROFILE-'].update(disabled = disableInd)
 
-    elif type == '--MARCO--' and f'_marco_' in window.AllKeysDict:
+    elif type == DevType.MARCO and f'_marco_' in window.AllKeysDict:
         SetLED (window, f'_marco_', ledColor)
         window[f'-MARCO_SET_TERM-'].update(disabled = disableInd)
         window[f'-MARCO_UPDATE_TEMP-'].update(disabled = disableInd)
@@ -259,7 +261,7 @@ def activationControl (window, type, disableInd = False, ledColor = 'green', ind
 
 # BUGBUG
     
-    elif type == '--HMP--' and f'_hmp_' in window.AllKeysDict:
+    elif type == DevType.HMP and f'_hmp_' in window.AllKeysDict:
         SetLED (window, f'_hmp_', ledColor)
         window[f'-HMP-CURRENT-'].update(disabled = disableInd)
         window[f'-HMP-VOLTAGE-'].update(disabled = disableInd)
@@ -267,7 +269,7 @@ def activationControl (window, type, disableInd = False, ledColor = 'green', ind
         window[f'-HMP-CURR-SET-'].update(disabled = disableInd)
         window[f'-HMP-VOLT-SET-'].update(disabled = disableInd)
 
-    elif type == '--DH--'  and f'_dh_gripper_{index}_' in window.AllKeysDict:  
+    elif type == DevType.DH  and f'_dh_gripper_{index}_' in window.AllKeysDict:  
         SetLED (window, f'_dh_gripper_{index}_', ledColor)
         window[f'-{index}-DH_GRIPPER_POS_SET-'].update(disabled = disableInd)
         window[f'-{index}-DH_GRIPPER_TARGET_RESET-'].update(disabled = disableInd)
@@ -276,7 +278,7 @@ def activationControl (window, type, disableInd = False, ledColor = 'green', ind
         window[f'-{index}-DH-GRIPPER-OFF-'].update(disabled = disableInd)
         window[f'-{index}-DH-GRIPPER-ON-'].update(disabled = disableInd)
 
-    elif type == '--MCDMC--' and '_mcdmc_' in window.AllKeysDict:  
+    elif type == DevType.MCDMC and '_mcdmc_' in window.AllKeysDict:  
         SetLED (window, '_mcdmc_', ledColor)
         SetLED (window, '_mcdmc_active_', ledColor)
         SetLED (window, '_cognex_', ledColor)
@@ -306,40 +308,40 @@ def deactivateGUI(window):
     activeGUIflag = False
 
     for i in range (1, trolley_motors + 1):
-        DeActivateMotorControl(window, '--TROLLEY--', i)
+        DeActivateMotorControl(window, DevType.TROLLEY, i)
 
     for i in range (1, zaber_motors + 1):
-        DeActivateMotorControl(window, '--ZABER--', i)
+        DeActivateMotorControl(window, DevType.ZABER, i)
 
     for i in range (1, gripper_motors + 1):
-        DeActivateMotorControl(window, '--GRIPPERv3--', i)
+        DeActivateMotorControl(window, DevType.GRIPPERv3, i)
 
     for i in range (1, distance_rotators + 1):
-        DeActivateMotorControl(window, '--DIST_ROTATOR--', i)
+        DeActivateMotorControl(window, DevType.DIST_ROTATOR, i)
 
     for i in range (1, dh_grippers + 1):
-        DeActivateMotorControl(window, '--DH--', i)
+        DeActivateMotorControl(window, DevType.DH, i)
 
     for i in range (1, time_rotators + 1):
-        DeActivateMotorControl(window, '--TIME_ROTATOR--')
+        DeActivateMotorControl(window, DevType.TIME_ROTATOR)
 
     for i in range (1, daq + 1):
-        DeActivateMotorControl(window, '--DAQ-NI--')
+        DeActivateMotorControl(window, DevType.DAQ-NI)
 
     for i in range (1, cams + 1):
-        DeActivateMotorControl(window, '--CAM--', i)
+        DeActivateMotorControl(window, DevType.CAM, i)
 
     for i in range (1, hmp + 1):
-        DeActivateMotorControl(window, '--HMP--')
+        DeActivateMotorControl(window, DevType.HMP)
 
     for i in range (1, phg + 1):
-        DeActivateMotorControl(window, '--PHG--', i)
+        DeActivateMotorControl(window, DevType.PHG, i)
 
     for i in range (1, mcdmc + 1):
-        DeActivateMotorControl(window, '--MCDMC--')
+        DeActivateMotorControl(window, DevType.MCDMC)
 
     for i in range (1, marco + 1):
-        DeActivateMotorControl(window, '--MARCO--')
+        DeActivateMotorControl(window, DevType.MARCO)
     pass
 
 
@@ -370,7 +372,7 @@ def deactivateGUI(window):
 #         window[f'-MARCO_SINGLE_SHOT_ON-'].update(button_color='white on green')
 
 
-#     ActivateMotorControl(window, f'--MARCO--')    
+#     ActivateMotorControl(window, fDevType.MARCO)    
 
 def initGUIDevs(window, devs_list:List):
     global activeGUIflag
@@ -378,8 +380,8 @@ def initGUIDevs(window, devs_list:List):
 
     print_log(f'Activating GUI for devices: {devs_list}')
     for m_dev in devs_list:
-        if m_dev.C_type == '--TROLLEY--':
-            ActivateMotorControl(window, '--TROLLEY--', m_dev.c_gui)
+        if m_dev.C_type == DevType.TROLLEY:
+            ActivateMotorControl(window, DevType.TROLLEY, m_dev.c_gui)
             window[f'-{m_dev.c_gui}-TROLLEY_POSSITION-'].update(value = m_dev.dev_mDC.mDev_pos)
             window[f'-{m_dev.c_gui}-TROLLEY_VELOCITY-'].update(value = m_dev.dev_mDC.rpm)
             window[f'-{m_dev.c_gui}-TROLLEY-CURR-'].update(value = m_dev.dev_mDC.el_current_limit)
@@ -388,8 +390,8 @@ def initGUIDevs(window, devs_list:List):
             if _title:
                 window[f'-{m_dev.c_gui}-TROLLEY-TITLE-'].update(_title)
 
-        elif m_dev.C_type == '--DIST_ROTATOR--':
-            ActivateMotorControl(window, '--DIST_ROTATOR--', m_dev.c_gui)
+        elif m_dev.C_type == DevType.DIST_ROTATOR:
+            ActivateMotorControl(window, DevType.DIST_ROTATOR, m_dev.c_gui)
             window[f'-{m_dev.c_gui}-DIST_ROTATOR_POSSITION-'].update(value = m_dev.dev_mDC.mDev_pos)
             window[f'-{m_dev.c_gui}-DIST_ROTATOR_VELOCITY-'].update(value = m_dev.dev_mDC.rpm)
             window[f'-{m_dev.c_gui}-DIST_ROTATOR-CURR-'].update(value = m_dev.dev_mDC.el_current_limit)
@@ -398,8 +400,8 @@ def initGUIDevs(window, devs_list:List):
             if _title:
                 window[f'-{m_dev.c_gui}-DIST_ROTATOR-TITLE-'].update(_title)
             
-        elif m_dev.C_type == '--TIME_ROTATOR--':
-            ActivateMotorControl(window, '--TIME_ROTATOR--', m_dev.c_gui)
+        elif m_dev.C_type == DevType.TIME_ROTATOR:
+            ActivateMotorControl(window, DevType.TIME_ROTATOR, m_dev.c_gui)
             window[f'-TIME_ROTATOR_TARGET-'].update(value = m_dev.dev_mDC.rotationTime)
             window[f'-TIME_ROTATOR_VELOCITY-'].update(value = m_dev.dev_mDC.el_voltage)
             window[f'-TIME_ROTATOR-CURR-'].update(value = m_dev.dev_mDC.el_current_limit)
@@ -409,8 +411,8 @@ def initGUIDevs(window, devs_list:List):
                 # window[f'-{m_dev.c_gui}-TIME_ROTATOR-TITLE-'].update(_title)
                 window[f'-TIME_ROTATOR-TITLE-'].update(_title)
 
-        elif m_dev.C_type == '--GRIPPER--':
-            ActivateMotorControl(window, f'--GRIPPER--', m_dev.c_gui)
+        elif m_dev.C_type == DevType.GRIPPER:
+            ActivateMotorControl(window, fDevType.GRIPPER, m_dev.c_gui)
             window[f'-{m_dev.c_gui}-GRIPPER-RPM-'].update(value = m_dev.dev_mDC.el_voltage)
             window[f'-{m_dev.c_gui}-GRIPPER-CURR-'].update(value = m_dev.dev_mDC.el_current_limit)
 
@@ -418,8 +420,8 @@ def initGUIDevs(window, devs_list:List):
             if _title:
                 window[f'-{m_dev.c_gui}-GRIPPER-TITLE-'].update(_title)
 
-        elif m_dev.C_type == '--GRIPPERv3--':
-            ActivateMotorControl(window, f'--GRIPPERv3--', m_dev.c_gui)
+        elif m_dev.C_type == DevType.GRIPPERv3:
+            ActivateMotorControl(window, fDevType.GRIPPERv3, m_dev.c_gui)
             if isinstance(m_dev.dev_mDC, MAXON_Motor):
                 window[f'-{m_dev.c_gui}-GRIPPER-RPM-'].update(value = m_dev.dev_mDC.el_voltage)
             else:
@@ -430,13 +432,13 @@ def initGUIDevs(window, devs_list:List):
             if _title:
                 window[f'-{m_dev.c_gui}-GRIPPER-TITLE-'].update(_title)
 
-        elif m_dev.C_type == '--ZABER--':
+        elif m_dev.C_type == DevType.ZABER:
             window[f'-{m_dev.c_gui:02d}-ZABER-POSSITION-'].update(value = m_dev.dev_zaber.current_pos)
             window[f'-{m_dev.c_gui:02d}-ZABER-VELOCITY-'].update(value = m_dev.dev_zaber.velocity_in_percents)
-            ActivateMotorControl(window, f'--ZABER--', m_dev.c_gui)
+            ActivateMotorControl(window, fDevType.ZABER, m_dev.c_gui)
             if m_dev.dev_zaber.is_parked():
                 print_log(f'ZABER {m_dev.dev_zaber.devName} is parked')
-                DeActivateMotorControl(window, '--ZABER--', m_dev.c_gui)
+                DeActivateMotorControl(window, DevType.ZABER, m_dev.c_gui)
                 SetLED (window, f'_zaber_{m_dev.c_gui}_', 'blue')
             else:
                 # print_log(f'ZABER {m_dev.dev_zaber.devName} is NOT parked')
@@ -447,10 +449,10 @@ def initGUIDevs(window, devs_list:List):
             if _title:
                 window[f'-{m_dev.c_gui:02d}-ZABER-TITLE-'].update(_title)
 
-        elif m_dev.C_type == '--DAQ-NI--':
-            ActivateMotorControl(window, f'--DAQ-NI--')
-        elif m_dev.C_type == '--PHG--':
-            ActivateMotorControl(window, f'--PHG--', m_dev.c_gui)
+        elif m_dev.C_type == DevType.DAQ-NI:
+            ActivateMotorControl(window, fDevType.DAQ-NI)
+        elif m_dev.C_type == DevType.PHG:
+            ActivateMotorControl(window, fDevType.PHG, m_dev.c_gui)
             _title = m_dev.get_device().getTitle()
             # print_log(f'Activating PHG GUI for {m_dev.dev_phg}, title = {_title}')
             if _title and f'_phg_{m_dev.c_gui}_' in window.AllKeysDict:
@@ -460,21 +462,21 @@ def initGUIDevs(window, devs_list:List):
                     window[f'-{m_dev.c_gui}-PHG-BUTTON-'].update(_title)
 
 
-        elif m_dev.C_type == '--CAM--':
+        elif m_dev.C_type == DevType.CAM:
             window[f'-{m_dev.c_gui}-CALIBR_PROFILE-'].update(value = 'base')
             if not len(m_dev.get_device().MOTORS) == 0:
                 window[f'-{m_dev.c_gui}-Z-SELECTOR-'].update(values = m_dev.get_device().MOTORS, value = m_dev.get_device().MOTORS[0])
-            ActivateMotorControl(window, f'--CAM--', m_dev.c_gui)
-        elif m_dev.C_type == '--HMP--':
-            ActivateMotorControl(window, f'--HMP--' )
-        elif m_dev.C_type == '--DH--':
-            ActivateMotorControl(window, f'--DH--', m_dev.c_gui)
+            ActivateMotorControl(window, fDevType.CAM, m_dev.c_gui)
+        elif m_dev.C_type == DevType.HMP:
+            ActivateMotorControl(window, fDevType.HMP )
+        elif m_dev.C_type == DevType.DH:
+            ActivateMotorControl(window, fDevType.DH, m_dev.c_gui)
             window[f'-{m_dev.c_gui}-DH-GRIPPER-RPM-'].update(value = m_dev.dev_mDC.DevOpSPEED)
-        elif m_dev.C_type == '--MCDMC--':
-            ActivateMotorControl(window, f'--MCDMC--')
-        elif m_dev.C_type == '--INTERLOCK--':
-            ActivateMotorControl(window, f'--INTER_LOCK_ENABLE--')
-        elif m_dev.C_type == '--MARCO--':
+        elif m_dev.C_type == DevType.MCDMC:
+            ActivateMotorControl(window, fDevType.MCDMC)
+        elif m_dev.C_type == DevType.INTERLOCK:
+            ActivateMotorControl(window, fDevType.INTER_LOCK_ENABLE)
+        elif m_dev.C_type == DevType.MARCO:
             _pulse_data:pulseData = m_dev.dev_marco.get_pulse_data()
             window[f'-MARCO_UPDATE_TEMP-'].update(value = m_dev.dev_marco.get_set_temp())
             if _pulse_data:
@@ -503,8 +505,8 @@ def initGUIDevs(window, devs_list:List):
                 window[f'-MARCO_SINGLE_SHOT_ON-'].update(button_color='white on green')
 
 
-            ActivateMotorControl(window, f'--MARCO--')
-        elif m_dev.C_type == '--IOCONTROL--':
+            ActivateMotorControl(window, fDevType.MARCO)
+        elif m_dev.C_type == DevType.IOCONTROL:
             pass
         else:
             print_err(f'ERROR PANIC - wrong device {m_dev.C_type} in the list at {m_dev.c_gui} position')
@@ -679,50 +681,50 @@ def LocateDevice (ev_name, devs_list) -> int:
     d_index = 0
     dev_ind = None
     for m_dev in devs_list:
-        if 'TROLLEY' in ev_name and m_dev.C_type == '--TROLLEY--':
+        if 'TROLLEY' in ev_name and m_dev.C_type == DevType.TROLLEY:
             if   m_dev.c_gui == int (ev_name[1]):
                 dev_ind = d_index
                 break
-        if 'TIME_ROTATOR' in ev_name and m_dev.C_type == '--TIME_ROTATOR--':
+        if 'TIME_ROTATOR' in ev_name and m_dev.C_type == DevType.TIME_ROTATOR:
             dev_ind = d_index
             break
-        elif 'GRIPPER' in ev_name and (m_dev.C_type == '--GRIPPER--' or m_dev.C_type == '--GRIPPERv3--'):
+        elif 'GRIPPER' in ev_name and (m_dev.C_type == DevType.GRIPPER or m_dev.C_type == DevType.GRIPPERv3):
             if   m_dev.c_gui == int (ev_name[1]):
                 dev_ind = d_index
                 break
-        elif 'DIST_ROTATOR' in ev_name and m_dev.C_type == '--DIST_ROTATOR--' :
-            if   m_dev.c_gui == int (ev_name[1]):
-                dev_ind = d_index
-                break
-
-        elif '-CALIBR' in ev_name and m_dev.C_type == '--CAM--' :
+        elif 'DIST_ROTATOR' in ev_name and m_dev.C_type == DevType.DIST_ROTATOR :
             if   m_dev.c_gui == int (ev_name[1]):
                 dev_ind = d_index
                 break
 
-        # elif ('HOTAIR' in ev_name or 'TRIGGER' in  ev_name) and m_dev.C_type == '--DAQ-NI--':
+        elif '-CALIBR' in ev_name and m_dev.C_type == DevType.CAM :
+            if   m_dev.c_gui == int (ev_name[1]):
+                dev_ind = d_index
+                break
+
+        # elif ('HOTAIR' in ev_name or 'TRIGGER' in  ev_name) and m_dev.C_type == DevType.DAQ-NI:
         #     break
 
-        elif 'DAQ' in  ev_name and m_dev.C_type == '--DAQ-NI--' and m_dev.get_device().devName == ev_name:
+        elif 'DAQ' in  ev_name and m_dev.C_type == DevType.DAQ-NI and m_dev.get_device().devName == ev_name:
             dev_ind = d_index
             break
 
-        elif ('HMP' in ev_name) and m_dev.C_type == '--HMP--':
+        elif ('HMP' in ev_name) and m_dev.C_type == DevType.HMP:
             dev_ind = d_index
             break
 
-        elif  'ZABER' in ev_name and m_dev.C_type == '--ZABER--':
+        elif  'ZABER' in ev_name and m_dev.C_type == DevType.ZABER:
             if  m_dev.c_gui == int (ev_name[1:3]):
                 print_DEBUG(f'Found device at d_index = {d_index} for event "{ev_name}"')
                 dev_ind = d_index
                 break
         
-        elif '-DH' in ev_name and (m_dev.C_type == '--DH--'):
+        elif '-DH' in ev_name and (m_dev.C_type == DevType.DH):
             if   m_dev.c_gui == int (ev_name[1]):
                 dev_ind = d_index
                 break
 
-        if 'PHG' in ev_name and m_dev.C_type == '--PHG--':
+        if 'PHG' in ev_name and m_dev.C_type == DevType.PHG:
             if   m_dev.c_gui == int (ev_name[1]):
                 dev_ind = d_index
                 break
@@ -760,31 +762,31 @@ def LocateDevice (ev_name, devs_list) -> int:
         #     if m_dev.dev_phg and m_dev.dev_phg.dType() == PhidgetRELAY.devType.jtse_hotair:
         #         break
         
-        elif 'MCDMC' in ev_name and m_dev.C_type == '--MCDMC--' :
+        elif 'MCDMC' in ev_name and m_dev.C_type == DevType.MCDMC :
             dev_ind = d_index
             break
 
-        elif 'COGNEX' in ev_name and m_dev.C_type == '--MCDMC--' :
+        elif 'COGNEX' in ev_name and m_dev.C_type == DevType.MCDMC :
             dev_ind = d_index
             break
 
-        elif 'CGNX_DB' in ev_name and m_dev.C_type == '--DB--' :
+        elif 'CGNX_DB' in ev_name and m_dev.C_type == DevType.DB :
             dev_ind = d_index
             break
 
-        elif 'MARCO' in ev_name and m_dev.C_type == '--MARCO--' :
+        elif 'MARCO' in ev_name and m_dev.C_type == DevType.MARCO :
             dev_ind = d_index
             break
 
-        # elif ('INTER_LOCK_ENABLE'  in ev_name or 'LCK1' in ev_name) and m_dev.C_type == '--INTERLOCK--' :
+        # elif ('INTER_LOCK_ENABLE'  in ev_name or 'LCK1' in ev_name) and m_dev.C_type == DevType.INTERLOCK :
         #     # print_log(f'BUGBUG ev_name = {ev_name},  dev = {m_dev}')
         #     break
 
-        # elif 'LCK2' in ev_name and m_dev.C_type == '--INTERLOCK--' and m_dev.get_device().devName == 'LCK2':
+        # elif 'LCK2' in ev_name and m_dev.C_type == DevType.INTERLOCK and m_dev.get_device().devName == 'LCK2':
         #     # print_log(f'BUGBUG ev_name = {ev_name},  dev = {m_dev}')
         #     break
 
-        elif m_dev.get_device().devName == ev_name[1:-1] and m_dev.C_type == '--IOCONTROL--':
+        elif m_dev.get_device().devName == ev_name[1:-1] and m_dev.C_type == DevType.IOCONTROL:
             dev_ind = d_index
             break
 
@@ -799,14 +801,14 @@ def LocateDevice (ev_name, devs_list) -> int:
 
 def Correct_ZB_possition_after_unpark(window, devs_list):
     for m_dev in devs_list:
-        if m_dev.C_type == '--ZABER--':
+        if m_dev.C_type == DevType.ZABER:
             new_pos = m_dev.dev_zaber.GetPos()
             window[f'-{m_dev.c_gui:02d}-ZABER-POSSITION-'].update(value = new_pos)
 
 
 def isThereParkedZaber(window, devs_list):
     for m_dev in devs_list:
-        if m_dev.C_type == '--ZABER--':
+        if m_dev.C_type == DevType.ZABER:
             if m_dev.get_device().is_parked():
                 return True
             
@@ -1095,21 +1097,21 @@ def InitGUI(parms:dict):
     global trolley_motors
 
 
-    zaber_motors = len(confDevs['--ZABER--'])
-    gripper_motors = len(confDevs['--GRIPPERv3--'])
-    distance_rotators = len(confDevs['--DIST_ROTATOR--'])
-    time_rotators = len(confDevs['--TIME_ROTATOR--'])
-    dh_grippers = len(confDevs['--DH--'])
-    cams = len(confDevs['--CAM--'])
-    daq = len(confDevs['--DAQ-NI--'])
-    hmp = len(confDevs['--HMP--'])
-    phg_dict:dict = confDevs['--PHG--']
-    trolley_motors = len(confDevs['--TROLLEY--'])
+    zaber_motors = len(confDevs[DevType.ZABER])
+    gripper_motors = len(confDevs[DevType.GRIPPERv3])
+    distance_rotators = len(confDevs[DevType.DIST_ROTATOR])
+    time_rotators = len(confDevs[DevType.TIME_ROTATOR])
+    dh_grippers = len(confDevs[DevType.DH])
+    cams = len(confDevs[DevType.CAM])
+    daq = len(confDevs[DevType.DAQ-NI])
+    hmp = len(confDevs[DevType.HMP])
+    phg_dict:dict = confDevs[DevType.PHG]
+    trolley_motors = len(confDevs[DevType.TROLLEY])
     phg = len(phg_dict)
-    mcdmc = len(confDevs['--MCDMC--'])
-    marco = len(confDevs['--MARCO--'])
-    intrlck = len(confDevs['--INTERLOCK--'])
-    jbc = len(confDevs['--JTSE--'])
+    mcdmc = len(confDevs[DevType.MCDMC])
+    marco = len(confDevs[DevType.MARCO])
+    intrlck = len(confDevs[DevType.INTERLOCK])
+    jbc = len(confDevs[DevType.JTSE])
     
     welder =  hotair = lights = dispencer_uv = False
 
@@ -1637,7 +1639,7 @@ def InitGUI(parms:dict):
 collors_LST = ['RED', 'GREEN', 'BLUE', 'BUZZ']
 def activateAlarm(color, devsLst, state = True)->bool:
     for _dev in devsLst:
-        if _dev.C_type == '--PHG--' :
+        if _dev.C_type == DevType.PHG :
             if _dev.get_device().devName in collors_LST:
                 if color is None:
                     _dev.get_device().devOperate(state)
@@ -1718,7 +1720,7 @@ def startIO(window:sg.Window,devs_list:List):
     _IOs = list()
     ind = 0
     for ind, _dev in enumerate(devs_list):
-        if _dev.C_type == '--IOCONTROL--':
+        if _dev.C_type == DevType.IOCONTROL:
             _op_device_ind = LocateDevice (_dev.get_device().getIODev(), devs_list)
             if _op_device_ind is not None:
                 _op_dev = devs_list[_op_device_ind]
@@ -1735,7 +1737,7 @@ def startIO(window:sg.Window,devs_list:List):
 #     _lcks = list()
 #     ind = 0
 #     for ind, _dev in enumerate(devs_list):
-#         if _dev.C_type == '--INTERLOCK--':
+#         if _dev.C_type == DevType.INTERLOCK:
 #             ni_interlock_ind = LocateDevice (_dev.get_device().getIODev(), devs_list)
 #             if ni_interlock_ind > 0:
 #                 ni_interlock = devs_list[ni_interlock_ind]
@@ -1992,14 +1994,14 @@ def workingCycle (window, parms:dict):
             Zaber_Motor.park_all()
 
             for m_dev in devs_list:
-                if m_dev.C_type == '--ZABER--':
+                if m_dev.C_type == DevType.ZABER:
                     i = m_dev.c_gui
-                    DeActivateMotorControl(window, '--ZABER--', i)
+                    DeActivateMotorControl(window, DevType.ZABER, i)
                     SetLED (window, f'_zaber_{i}_', 'blue')
 
 
             # for i in range (1, zaber_motors + 1):
-            #     DeActivateMotorControl(window, '--ZABER--', i)
+            #     DeActivateMotorControl(window, DevType.ZABER, i)
             #     SetLED (window, f'_zaber_{i}_', 'blue')
 
 
@@ -2013,13 +2015,13 @@ def workingCycle (window, parms:dict):
 
 
             for m_dev in devs_list:
-                if m_dev.C_type == '--ZABER--':
+                if m_dev.C_type == DevType.ZABER:
                     i = m_dev.c_gui
-                    ActivateMotorControl(window, '--ZABER--', i)
+                    ActivateMotorControl(window, DevType.ZABER, i)
 
 
             # for i in range (1, zaber_motors + 1):
-            #     ActivateMotorControl(window, '--ZABER--', i)
+            #     ActivateMotorControl(window, DevType.ZABER, i)
 
             continue
 
@@ -2207,14 +2209,14 @@ def workingCycle (window, parms:dict):
 # Peripheral devices section
 #
 
-        # ni_dev = get_dev('--DAQ-NI--', devs_list)
-        # calibration_cam = get_dev('--CAM--', devs_list)
-        hmp_dev = get_dev('--HMP--', devs_list)
-        # phg_dev = get_dev('--PHG--', devs_list)
-        # marco_dev = get_dev('--MARCO--', devs_list)
+        # ni_dev = get_dev(DevType.DAQ-NI, devs_list)
+        # calibration_cam = get_dev(DevType.CAM, devs_list)
+        hmp_dev = get_dev(DevType.HMP, devs_list)
+        # phg_dev = get_dev(DevType.PHG, devs_list)
+        # marco_dev = get_dev(DevType.MARCO, devs_list)
 
         if  '-PHG-' in event:
-            DeActivateMotorControl(window, '--PHG--', devs_list[d_index].c_gui)
+            DeActivateMotorControl(window, DevType.PHG, devs_list[d_index].c_gui)
             if '-BUTTON-' in event:                     # i.e. -1-PHG-BUTTON-
                 if devs_list[d_index].get_device().dType() == PhidgetRELAY.devType.trigger:
                     wTask = pm.WorkingTask(pm.CmdObj(device=devs_list[d_index],cmd=pm.OpType.phg_operate), sType = pm.RunType.single)
@@ -2249,27 +2251,27 @@ def workingCycle (window, parms:dict):
                 print_err(f'ERROR - Unrecognized event: {event} for device {devs_list[d_index]}')
                 continue
             
-            ActivateMotorControl(window, '--PHG--', devs_list[d_index].c_gui)
+            ActivateMotorControl(window, DevType.PHG, devs_list[d_index].c_gui)
 
 ##########################                        
 
         # if event == 'TRIGGER':
-        #     if ni_dev and devs_list[d_index].C_type == '--DAQ-NI--':
-        #         DeActivateMotorControl(window, '--DAQ-NI--')
+        #     if ni_dev and devs_list[d_index].C_type == DevType.DAQ-NI:
+        #         DeActivateMotorControl(window, DevType.DAQ-NI)
         #         print_log(f'Trigger - {values["-SELECTOR-"]} ')
 
         #         wTask = pm.WorkingTask(pm.CmdObj(device=devs_list[d_index],cmd=pm.OpType.trigger, args=pm.argsType(trigger_selector=int(values["-SELECTOR-"][-1]))), sType = pm.RunType.single)
 
 
         #         print_log(f'{int(values["-SELECTOR-"][-1])} schedule trigger will be sent')
-        #         ActivateMotorControl(window, '--DAQ-NI--')
-        #     elif phg_dev  and devs_list[d_index].C_type == '--PHG--':
-        #         DeActivateMotorControl(window, '--PHG--', devs_list[d_index].c_gui)
+        #         ActivateMotorControl(window, DevType.DAQ-NI)
+        #     elif phg_dev  and devs_list[d_index].C_type == DevType.PHG:
+        #         DeActivateMotorControl(window, DevType.PHG, devs_list[d_index].c_gui)
 
         #         wTask = pm.WorkingTask(pm.CmdObj(device=devs_list[d_index],cmd=pm.OpType.phg_trigger), sType = pm.RunType.single)
 
         #         print_log(f'Welder trigger will be sent. dev = {devs_list[d_index]}/ {devs_list[d_index].get_device()}')
-        #         ActivateMotorControl(window, '--PHG--', devs_list[d_index].c_gui)
+        #         ActivateMotorControl(window, DevType.PHG, devs_list[d_index].c_gui)
         #     else:
         #         print_err(f'No NI/PHG device found to operate TRIGGER control')
             
@@ -2277,31 +2279,31 @@ def workingCycle (window, parms:dict):
         # elif event == 'DISP_TRIG':
             
         #     if phg_dev:
-        #         DeActivateMotorControl(window, '--PHG--')
+        #         DeActivateMotorControl(window, DevType.PHG)
 
         #         wTask = pm.WorkingTask(pm.CmdObj(device=devs_list[d_index],cmd=pm.OpType.phg_trigger), sType = pm.RunType.single)
 
         #         print_log(f'Dispenser trigger will be sent. dev = {devs_list[d_index]}/ {devs_list[d_index].get_device()}')
-        #         ActivateMotorControl(window, '--PHG--')
+        #         ActivateMotorControl(window, DevType.PHG)
         #     else:
         #         print_err(f'No PGH device found to operate TRIGGER control')
 
         # elif event == 'UV_TRIG':
             
         #     if phg_dev:
-        #         DeActivateMotorControl(window, '--PHG--')
+        #         DeActivateMotorControl(window, DevType.PHG)
 
         #         wTask = pm.WorkingTask(pm.CmdObj(device=devs_list[d_index],cmd=pm.OpType.phg_trigger), sType = pm.RunType.single)
 
         #         print_log(f'UV trigger will be sent. dev = {devs_list[d_index]}/ {devs_list[d_index].get_device()}')
-        #         ActivateMotorControl(window, '--PHG--')
+        #         ActivateMotorControl(window, DevType.PHG)
         #     else:
         #         print_err(f'No PGH device found to operate TRIGGER control')
 
         # elif event == 'FRONT_LIGHT':
             
         #     if phg_dev:
-        #         DeActivateMotorControl(window, '--PHG--')
+        #         DeActivateMotorControl(window, DevType.PHG)
                 
         #         if devs_list[d_index].get_device().isOpen():
         #             window[f'FRONT_LIGHT'].update(button_color='gray')
@@ -2312,14 +2314,14 @@ def workingCycle (window, parms:dict):
                 
 
         #         print_log(f'FRONT LIGHT  will be sent. dev = {devs_list[d_index]}/ {devs_list[d_index].get_device()}')
-        #         ActivateMotorControl(window, '--PHG--')
+        #         ActivateMotorControl(window, DevType.PHG)
         #     else:
         #         print_err(f'No PGH device found to operate TRIGGER control')
 
         # elif event == 'BACK_LIGHT':
             
         #     if phg_dev:
-        #         DeActivateMotorControl(window, '--PHG--')
+        #         DeActivateMotorControl(window, DevType.PHG)
 
         #         if devs_list[d_index].get_device().isOpen():
         #             window[f'BACK_LIGHT'].update(button_color='gray')
@@ -2331,14 +2333,14 @@ def workingCycle (window, parms:dict):
 
 
         #         print_log(f'BACK LIGHT trigger will be sent. dev = {devs_list[d_index]}/ {devs_list[d_index].get_device()}')
-        #         ActivateMotorControl(window, '--PHG--')
+        #         ActivateMotorControl(window, DevType.PHG)
         #     else:
         #         print_err(f'No PGH device found to operate TRIGGER control')
 
         # elif event == 'HOLE_LIGHT':
             
         #     if phg_dev:
-        #         DeActivateMotorControl(window, '--PHG--')
+        #         DeActivateMotorControl(window, DevType.PHG)
 
         #         if devs_list[d_index].get_device().isOpen():
         #             window[f'HOLE_LIGHT'].update(button_color='gray')
@@ -2350,27 +2352,27 @@ def workingCycle (window, parms:dict):
 
 
         #         print_log(f'HOLE LIGHT trigger will be sent. dev = {devs_list[d_index]}/ {devs_list[d_index].get_device()}')
-        #         ActivateMotorControl(window, '--PHG--')
+        #         ActivateMotorControl(window, DevType.PHG)
         #     else:
         #         print_err(f'No PGH device found to operate TRIGGER control')
 
         # elif event == 'HOTAIR-STOP':
         #     if (ni_dev):
-        #         DeActivateMotorControl(window, '--DAQ-NI--')
+        #         DeActivateMotorControl(window, DevType.DAQ-NI)
         #         print_log(f'Stoping JTSE Hot Air Station')
 
         #         wTask = pm.WorkingTask(pm.CmdObj(device=devs_list[d_index],cmd=pm.OpType.hotair, args=pm.argsType(start_stop=False)), sType = pm.RunType.single)
         #         # ni_dev.jtseStop()
 
-        #         ActivateMotorControl(window, '--DAQ-NI--')
-        #     elif phg_dev  and devs_list[d_index].C_type == '--PHG--':
-        #         DeActivateMotorControl(window, '--PHG--')
+        #         ActivateMotorControl(window, DevType.DAQ-NI)
+        #     elif phg_dev  and devs_list[d_index].C_type == DevType.PHG:
+        #         DeActivateMotorControl(window, DevType.PHG)
 
 
         #         wTask = pm.WorkingTask(pm.CmdObj(device=devs_list[d_index],cmd=pm.OpType.phg_toggle, args=pm.argsType(light_on = False)), sType = pm.RunType.single)
 
         #         print_log(f'JTSE Hotair OFF/STOP will be sent. dev = {devs_list[d_index]}/ {devs_list[d_index].get_device()}')
-        #         ActivateMotorControl(window, '--PHG--')
+        #         ActivateMotorControl(window, DevType.PHG)
         #     else:
         #         print_err(f'No NI device found to operate JTSE control')
 
@@ -2378,20 +2380,20 @@ def workingCycle (window, parms:dict):
 
         # elif event == 'HOTAIR-START':
         #     if (ni_dev):
-        #         DeActivateMotorControl(window, '--DAQ-NI--')
+        #         DeActivateMotorControl(window, DevType.DAQ-NI)
         #         print_log(f'Operating  JTSE Hot Air Station')
 
         #         wTask = pm.WorkingTask(pm.CmdObj(device=devs_list[d_index],cmd=pm.OpType.hotair, args=pm.argsType(start_stop=True)), sType = pm.RunType.single)
         #         # ni_dev.jtseStart()
                 
-        #         ActivateMotorControl(window, '--DAQ-NI--')
-        #     elif phg_dev  and devs_list[d_index].C_type == '--PHG--':
-        #         DeActivateMotorControl(window, '--PHG--')
+        #         ActivateMotorControl(window, DevType.DAQ-NI)
+        #     elif phg_dev  and devs_list[d_index].C_type == DevType.PHG:
+        #         DeActivateMotorControl(window, DevType.PHG)
 
         #         wTask = pm.WorkingTask(pm.CmdObj(device=devs_list[d_index],cmd=pm.OpType.phg_toggle, args=pm.argsType(light_on = True)), sType = pm.RunType.single)
 
         #         print_log(f'JTSE Hotair ON/START will be sent. dev = {devs_list[d_index]}/ {devs_list[d_index].get_device()}')
-        #         ActivateMotorControl(window, '--PHG--')
+        #         ActivateMotorControl(window, DevType.PHG)
         #     else:
         #         print_err(f'No NI/PHG device found to operate JTSE control')
 
@@ -2594,12 +2596,12 @@ def workingCycle (window, parms:dict):
         elif event == '-HMP-RES-CALC-':
             if (hmp_dev):
                 print_log(f'Operating  HMP power station')
-                DeActivateMotorControl(window, '--HMP--')
+                DeActivateMotorControl(window, DevType.HMP)
                 wTask = pm.WorkingTask(pm.CmdObj(device=devs_list[d_index],cmd=pm.OpType.measure, \
                                                 args=pm.argsType(curr=values[f'-HMP-CURRENT-'], volt=values[f'-HMP-VOLTAGE-'])),\
                                                 sType = pm.RunType.single)
                     
-                ActivateMotorControl(window, '--HMP--')
+                ActivateMotorControl(window, DevType.HMP)
             else:
                 print_err(f'No HMP device found to calculate resistance')
             
@@ -2727,7 +2729,7 @@ def workingCycle (window, parms:dict):
             #     wTask = proc_tuning(window, devs_list, devs_list[d_index].get_device().motor, dist)
     ###############################################
 
-            ActivateMotorControl(window, '--CAM--', i)
+            ActivateMotorControl(window, DevType.CAM, i)
             calibration_in_process = False
             continue
         
@@ -2743,7 +2745,7 @@ def workingCycle (window, parms:dict):
                     continue
 
                 print_log(f'Calibrate button pressed for {values[f"-{i}-Z-SELECTOR-"]} profile = {values[f"-{i}-CALIBR_PROFILE-"]}  ')
-                DeActivateMotorControl(window, '--CAM--', i)
+                DeActivateMotorControl(window, DevType.CAM, i)
                 SetLED (window, f'_calibr_{i}_', 'DeepPink2')
                 window.Finalize()
                 
@@ -2761,7 +2763,7 @@ def workingCycle (window, parms:dict):
                 
                 if not calibration_in_process:
                     print_err(f'Calibration on {values[f"-{i}-Z-SELECTOR-"]} failed to start/no modbus client found')
-                    ActivateMotorControl(window, '--CAM--', i)
+                    ActivateMotorControl(window, DevType.CAM, i)
                     sg.popup_auto_close('Calibration failed to start')
                     continue
                     
@@ -2804,12 +2806,12 @@ def workingCycle (window, parms:dict):
                                                                     # the value is invalid
                 window[f'-{i:02d}-ZABER-DST-'].update(str(devs_list[d_index].dev_zaber.GetPos())) 
             else:
-                DeActivateMotorControl(window, f'--ZABER--', devs_list[d_index].c_gui)
+                DeActivateMotorControl(window, fDevType.ZABER, devs_list[d_index].c_gui)
                 wTask = pm.WorkingTask(pm.CmdObj(device=devs_list[d_index],cmd=pm.OpType.go_to_dest, args=pm.argsType(position=values[f'-{i:02d}-ZABER-DST-'])), sType = pm.RunType.single)
                 # devs_list[d_index].dev_zaber.move_abs(values[f'-{i:02d}-ZABER-DST-'])
 
         elif 'ZABER-GH-' in event:
-            DeActivateMotorControl(window, f'--ZABER--', devs_list[d_index].c_gui)
+            DeActivateMotorControl(window, fDevType.ZABER, devs_list[d_index].c_gui)
             wTask = pm.WorkingTask(pm.CmdObj(device=devs_list[d_index],cmd=pm.OpType.home), sType = pm.RunType.single)
             # devs_list[d_index].dev_zaber.move_home()
             pass
@@ -2827,7 +2829,7 @@ def workingCycle (window, parms:dict):
             window[f'-{devs_list[d_index].c_gui}-DH-GRIPPER-ON-'].update(button_color='dark green on green')
             window[f'-{devs_list[d_index].c_gui}-DH-GRIPPER-OFF-'].update(button_color='white on red')
 
-            DeActivateMotorControl(window, f'--DH--', devs_list[d_index].c_gui)
+            DeActivateMotorControl(window, fDevType.DH, devs_list[d_index].c_gui)
             wTask = pm.WorkingTask(pm.CmdObj(device=devs_list[d_index],cmd=pm.OpType.go_fwrd_on), sType = pm.RunType.single)
             devs_list[d_index].dev_mDC._mDev_pressed = True
 
@@ -2836,7 +2838,7 @@ def workingCycle (window, parms:dict):
             window[f'-{devs_list[d_index].c_gui}-DH-GRIPPER-OFF-'].update(button_color='tomato on red')
             window[f'-{devs_list[d_index].c_gui}-DH-GRIPPER-ON-'].update(button_color='white on green')
 
-            DeActivateMotorControl(window, f'--DH--', devs_list[d_index].c_gui)
+            DeActivateMotorControl(window, fDevType.DH, devs_list[d_index].c_gui)
             wTask = pm.WorkingTask(pm.CmdObj(device=devs_list[d_index], cmd=pm.OpType.go_bcwrd_off), sType = pm.RunType.single)
             devs_list[d_index].dev_mDC._mDev_pressed = True
 
@@ -2858,7 +2860,7 @@ def workingCycle (window, parms:dict):
             # devs_list[d_index].dev_mDC.go2pos(go_pos)
 
             devs_list[d_index].dev_mDC._mDev_pressed = True
-            DeActivateMotorControl(window, f'--DH--', devs_list[d_index].c_gui)
+            DeActivateMotorControl(window, fDevType.DH, devs_list[d_index].c_gui)
         
 
         
@@ -2973,12 +2975,12 @@ def workingCycle (window, parms:dict):
     # GRIPPER
         elif '-GRIPPER-RPM-' in event:
             
-            if devs_list[d_index].dev_mDC.mDev_type == '--GRIPPERv3--':
+            if devs_list[d_index].dev_mDC.mDev_type == DevType.GRIPPERv3:
                 if isinstance(devs_list[d_index].dev_mDC, MAXON_Motor):
                     update_val = str(devs_list[d_index].dev_mDC.DEAFULT_VELOCITY_EV_VOLTAGE)
                 else:
                     update_val = str(devs_list[d_index].dev_mDC.DevOpSPEED)
-            elif devs_list[d_index].dev_mDC.mDev_type == '--GRIPPER--': 
+            elif devs_list[d_index].dev_mDC.mDev_type == DevType.GRIPPER: 
                 update_val = str(devs_list[d_index].dev_mDC.DEAFULT_VELOCITY_EV_VOLTAGE)
             else:
                 update_val = None
@@ -2986,12 +2988,12 @@ def workingCycle (window, parms:dict):
             new_val = formFillProc(event, values, window, realNum = False, positiveNum = True, defaultValue = update_val)
 
             
-            if devs_list[d_index].dev_mDC.mDev_type == '--GRIPPERv3--':
+            if devs_list[d_index].dev_mDC.mDev_type == DevType.GRIPPERv3:
                 if isinstance(devs_list[d_index].dev_mDC, MAXON_Motor):
                     devs_list[d_index].dev_mDC.el_voltage = new_val
                 else:
                     devs_list[d_index].dev_mDC.rpm = new_val
-            elif devs_list[d_index].dev_mDC.mDev_type == '--GRIPPER--':
+            elif devs_list[d_index].dev_mDC.mDev_type == DevType.GRIPPER:
                 devs_list[d_index].dev_mDC.el_voltage = new_val
             else:
                 print_err(f'-ERROR-: Wrong device type {devs_list[d_index].dev_mDC.mDev_type} at event {event}')            
@@ -3006,7 +3008,7 @@ def workingCycle (window, parms:dict):
             window[f'-{devs_list[d_index].c_gui}-GRIPPER-ON-'].update(button_color='dark green on green')
             window[f'-{devs_list[d_index].c_gui}-GRIPPER-OFF-'].update(button_color='white on red')
 
-            DeActivateMotorControl(window, f'--GRIPPERv3--', devs_list[d_index].c_gui)
+            DeActivateMotorControl(window, fDevType.GRIPPERv3, devs_list[d_index].c_gui)
             wTask = pm.WorkingTask(pm.CmdObj(device=devs_list[d_index],cmd=pm.OpType.go_fwrd_on), sType = pm.RunType.single)
             # devs_list[d_index].dev_mDC.gripper_on()
             devs_list[d_index].dev_mDC.mDev_pressed = True
@@ -3016,7 +3018,7 @@ def workingCycle (window, parms:dict):
             window[f'-{devs_list[d_index].c_gui}-GRIPPER-OFF-'].update(button_color='tomato on red')
             window[f'-{devs_list[d_index].c_gui}-GRIPPER-ON-'].update(button_color='white on green')
 
-            DeActivateMotorControl(window, f'--GRIPPERv3--', devs_list[d_index].c_gui)
+            DeActivateMotorControl(window, fDevType.GRIPPERv3, devs_list[d_index].c_gui)
             wTask = pm.WorkingTask(pm.CmdObj(device=devs_list[d_index], cmd=pm.OpType.go_bcwrd_off), sType = pm.RunType.single)
             # devs_list[d_index].dev_mDC.gripper_off()
             devs_list[d_index].dev_mDC.mDev_pressed = True
@@ -3039,7 +3041,7 @@ def workingCycle (window, parms:dict):
             # devs_list[d_index].dev_mDC.go2pos(go_pos)
 
             devs_list[d_index].dev_mDC.mDev_pressed = True
-            DeActivateMotorControl(window, f'--GRIPPERv3--', devs_list[d_index].c_gui)
+            DeActivateMotorControl(window, fDevType.GRIPPERv3, devs_list[d_index].c_gui)
         
 
         
@@ -3087,10 +3089,10 @@ def workingCycle (window, parms:dict):
 
             devs_list[d_index].dev_mDC.mDev_pressed = True
 
-            DeActivateMotorControl(window, f'--TROLLEY--', devs_list[d_index].c_gui)
+            DeActivateMotorControl(window, fDevType.TROLLEY, devs_list[d_index].c_gui)
         
         elif '-TROLLEY_RIGHT-' in event:
-            DeActivateMotorControl(window, '--TROLLEY--', devs_list[d_index].c_gui)
+            DeActivateMotorControl(window, DevType.TROLLEY, devs_list[d_index].c_gui)
 
             wTask = pm.WorkingTask(pm.CmdObj(device=devs_list[d_index], cmd=pm.OpType.go_fwrd_on), sType = pm.RunType.single)
             # devs_list[d_index].dev_mDC.mDev_forward()
@@ -3098,7 +3100,7 @@ def workingCycle (window, parms:dict):
             devs_list[d_index].dev_mDC.mDev_pressed = True
 
         elif '-TROLLEY_LEFT-' in event:
-            DeActivateMotorControl(window, '--TROLLEY--', devs_list[d_index].c_gui)
+            DeActivateMotorControl(window, DevType.TROLLEY, devs_list[d_index].c_gui)
 
             wTask = pm.WorkingTask(pm.CmdObj(device=devs_list[d_index], cmd=pm.OpType.go_bcwrd_off), sType = pm.RunType.single)
             # devs_list[d_index].dev_mDC.mDev_backwrd()
@@ -3109,7 +3111,7 @@ def workingCycle (window, parms:dict):
             wTask = pm.WorkingTask(pm.CmdObj(device=devs_list[d_index], cmd=pm.OpType.stop), sType = pm.RunType.single)
             # devs_list[d_index].dev_mDC.mDev_stop()
 
-            ActivateMotorControl(window, '--TROLLEY--', devs_list[d_index].c_gui)
+            ActivateMotorControl(window, DevType.TROLLEY, devs_list[d_index].c_gui)
             
         elif '-TROLLEY_TARGET_RESET-' in event:
             i = event[1]
@@ -3149,11 +3151,11 @@ def workingCycle (window, parms:dict):
             # devs_list[d_index].dev_mDC.go2pos(go_pos)
 
             devs_list[d_index].dev_mDC.mDev_pressed = True
-            DeActivateMotorControl(window, f'--DIST_ROTATOR--', devs_list[d_index].c_gui)
+            DeActivateMotorControl(window, fDevType.DIST_ROTATOR, devs_list[d_index].c_gui)
         
         elif '-DIST_ROTATOR_RIGHT-' in event:
             
-            DeActivateMotorControl(window, '--DIST_ROTATOR--', devs_list[d_index].c_gui)
+            DeActivateMotorControl(window, DevType.DIST_ROTATOR, devs_list[d_index].c_gui)
 
             wTask = pm.WorkingTask(pm.CmdObj(device=devs_list[d_index], cmd=pm.OpType.go_fwrd_on), sType = pm.RunType.single)
             # devs_list[d_index].dev_mDC.mDev_forward()
@@ -3161,7 +3163,7 @@ def workingCycle (window, parms:dict):
             devs_list[d_index].dev_mDC.mDev_pressed = True
 
         elif '-DIST_ROTATOR_LEFT-' in event:
-            DeActivateMotorControl(window, '--DIST_ROTATOR--', devs_list[d_index].c_gui)
+            DeActivateMotorControl(window, DevType.DIST_ROTATOR, devs_list[d_index].c_gui)
 
             wTask = pm.WorkingTask(pm.CmdObj(device=devs_list[d_index], cmd=pm.OpType.go_bcwrd_off), sType = pm.RunType.single)
             # devs_list[d_index].dev_mDC.mDev_backwrd()
@@ -3172,7 +3174,7 @@ def workingCycle (window, parms:dict):
             wTask = pm.WorkingTask(pm.CmdObj(device=devs_list[d_index], cmd=pm.OpType.stop), sType = pm.RunType.single)
             # devs_list[d_index].dev_mDC.mDev_stop()
 
-            ActivateMotorControl(window, '--DIST_ROTATOR--', devs_list[d_index].c_gui)
+            ActivateMotorControl(window, DevType.DIST_ROTATOR, devs_list[d_index].c_gui)
             
         elif '-DIST_ROTATOR_TARGET_RESET-' in event:
             i = event[1]
@@ -3199,7 +3201,7 @@ def workingCycle (window, parms:dict):
             devs_list[d_index].dev_mDC.el_voltage = new_val
 
         elif '-TIME_ROTATOR_RIGHT-' in event:
-            DeActivateMotorControl(window, '--TIME_ROTATOR--', devs_list[d_index].c_gui)
+            DeActivateMotorControl(window, DevType.TIME_ROTATOR, devs_list[d_index].c_gui)
 
             wTask = pm.WorkingTask(pm.CmdObj(device=devs_list[d_index], cmd=pm.OpType.go_fwrd_on, args=pm.argsType(time=int(values[f'-TIME_ROTATOR_TARGET-']))), sType = pm.RunType.single)
             # devs_list[d_index].dev_mDC.timeRotaterFw(int(values[f'-TIME_ROTATOR_TARGET-']))
@@ -3207,7 +3209,7 @@ def workingCycle (window, parms:dict):
             devs_list[d_index].dev_mDC.mDev_pressed = True
 
         elif '-TIME_ROTATOR_LEFT-' in event:
-            DeActivateMotorControl(window, '--TIME_ROTATOR--', devs_list[d_index].c_gui)
+            DeActivateMotorControl(window, DevType.TIME_ROTATOR, devs_list[d_index].c_gui)
 
             wTask = pm.WorkingTask(pm.CmdObj(device=devs_list[d_index], cmd=pm.OpType.go_bcwrd_off, args=pm.argsType(time=int(values[f'-TIME_ROTATOR_TARGET-']))), sType = pm.RunType.single)
             # devs_list[d_index].dev_mDC.timeRotaterBw(int(values[f'-TIME_ROTATOR_TARGET-']))
@@ -3218,7 +3220,7 @@ def workingCycle (window, parms:dict):
             wTask = pm.WorkingTask(pm.CmdObj(device=devs_list[d_index], cmd=pm.OpType.stop), sType = pm.RunType.single)
             # devs_list[d_index].dev_mDC.mDev_stop()
 
-            ActivateMotorControl(window, '--TIME_ROTATOR--', devs_list[d_index].c_gui)
+            ActivateMotorControl(window, DevType.TIME_ROTATOR, devs_list[d_index].c_gui)
             
         elif '-TIME_ROTATOR-CURR-' in event:
             new_val = formFillProc(event, values, window, realNum = False, positiveNum = True, defaultValue = devs_list[d_index].dev_mDC.DEFAULT_CURRENT_LIMIT)

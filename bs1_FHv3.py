@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from queue import Queue 
 
 
-
+from bs2_config import DevType
 from bs1_utils import print_log, print_inf, print_err, print_DEBUG, exptTrace, s16, s32, num2binstr, set_parm, get_parm, globalEventQ, smartLocker
 import momanlibpy
 
@@ -245,7 +245,7 @@ class FH_Motor_v3:
 #########################################################################
         self.fhv3_port:int = fhv3port                           # 1,2,3..
         self.fhv3_chan:int = channel                            # 1,2,3..
-        self.mDev_type = None                                 # devise type (--ROTATOR-- / --GRIPPERv3-- / --DIST_ROTATOR-- / --TIME_ROTATOR-- (SPINNER))
+        self.mDev_type = None                                 # devise type (DevType.ROTATOR / DevType.GRIPPERv3 / DevType.DIST_ROTATOR / DevType.TIME_ROTATOR (SPINNER))
         self.mDev_pos:int = 0                                 #  current position 
         self.el_current_limit:int = 0                       # electrical current limit to stop 
         self.el_current_on_the_fly:int = 0                  # On-the-fly current                    
@@ -558,13 +558,13 @@ class FH_Motor_v3:
         self.mDev_type = type
         print_inf(f'Initiating FHv3 devise of {self.mDev_type} type on port {self.fhv3_port}')
         try:
-            if self.mDev_type == '--DIST_ROTATOR--' or self.mDev_type == '--TIME_ROTATOR--' or self.mDev_type == '--TROLLEY--' or self.mDev_type == '--GRIPPERv3--':
+            if self.mDev_type == DevType.DIST_ROTATOR or self.mDev_type == DevType.TIME_ROTATOR or self.mDev_type == DevType.TROLLEY or self.mDev_type == DevType.GRIPPERv3:
                 self.el_current_limit = self.DEFAULT_CURRENT_LIMIT
                 res = FH_Motor_v3.FH_cmd(self.fhv3_port, FHv3_INIT_CMD_LST,lock = FH_Motor_v3.fh_lock )
                     
                 print_inf (f"Port= {self.fhv3_port},  init commands =  {FHv3_INIT_CMD_LST} with res=  {res}" )
             
-            if self.mDev_type == '--TIME_ROTATOR--':
+            if self.mDev_type == DevType.TIME_ROTATOR:
                 self.rotationTime = self.DEFAULT_ROTATION_TIME
 
         except Exception as ex:
@@ -595,7 +595,7 @@ class FH_Motor_v3:
 
                     if (int(abs(answ)) > int(self.el_current_limit)):
                         print_inf(f' WatchDog FHv3: Actual Current Value = {answ}, Limit = {self.el_current_limit}')
-                        if (self.mDev_type == '--TROLLEY--' or self.mDev_type == '--DIST_ROTATOR--') and self.possition_control_mode:
+                        if (self.mDev_type == DevType.TROLLEY or self.mDev_type == DevType.DIST_ROTATOR) and self.possition_control_mode:
                             _pos = self.mDev_get_cur_pos()
                             if abs(_pos - self.new_pos) > self.EX_LIMIT:
                                 print_log(f'Desired position [{self.new_pos}] is not reached. Current position = {_pos}')
@@ -609,20 +609,20 @@ class FH_Motor_v3:
 
 
                 
-                if self.mDev_type == '--GRIPPERv3--':
+                if self.mDev_type == DevType.GRIPPERv3:
                     end_time = time.time()
                     if end_time - self.start_time > self.GRIPPER_TIMEOUT:
                         print_inf(f' WatchDog FHv3: GRIPPER operation canceled by timeout, port = {self.fhv3_port}, current GRC = {answ}, Limit = {self.el_current_limit}, max GRC = {max_GRC} ')
                         break
 
-                if self.mDev_type == '--TIME_ROTATOR--':
+                if self.mDev_type == DevType.TIME_ROTATOR:
                     end_time = time.time()
                     if end_time - self.start_time > self.rotationTime:
                         print_inf(f' WatchDog FHv3: TIME ROTATOR operation completed, port = {self.fhv3_port}, current GRC = {answ}, Limit = {self.el_current_limit}, max GRC = {max_GRC} ')
                         break
 
 
-                if (self.mDev_type == '--TROLLEY--' or self.mDev_type == '--DIST_ROTATOR--') and self.possition_control_mode :
+                if (self.mDev_type == DevType.TROLLEY or self.mDev_type == DevType.DIST_ROTATOR) and self.possition_control_mode :
                     answA = FH_Motor_v3.FH_cmd(self.fhv3_port, [FHv3STATUS_QUERY], lock=FH_Motor_v3.fh_lock)
                     print_log(f'WatchDog FHv3: FHv3STATUS_QUERY={answA}, len = {len(answA)}')
                     if len(answA):
@@ -655,7 +655,7 @@ class FH_Motor_v3:
         _pos = self.mDev_get_cur_pos()
         print_inf (f'>>> WatchDog FHv3  completed on FHv3 port = {self.fhv3_port}, dev = {self.devName}, position = {_pos}, target = {self.new_pos}')
         print_inf(f' WatchDog FHv3: Start time = {self.start_time}, end time ={end_time}, delta = {end_time - self.start_time}')
-        if not (self.mDev_type == '--DIST_ROTATOR--') and end_time - self.start_time - self.MEASUREMENT_DELAY < self.MINIMAL_OP_DURATION:
+        if not (self.mDev_type == DevType.DIST_ROTATOR) and end_time - self.start_time - self.MEASUREMENT_DELAY < self.MINIMAL_OP_DURATION:
             print_inf(f' WatchDog FHv3: Abnormal FHv3 termination on port = {self.fhv3_port}')
             self.success_flag = False
 
@@ -663,7 +663,7 @@ class FH_Motor_v3:
     
         if self.mDev_in_motion:
             print_inf(f'Thread is being stoped')
-            # if self.mDev_type == '--DIST_ROTATOR--' or self.mDev_type == '--GRIPPERv3--':     # stop as is with no realeasing for ROTATOR devs
+            # if self.mDev_type == DevType.DIST_ROTATOR or self.mDev_type == DevType.GRIPPERv3:     # stop as is with no realeasing for ROTATOR devs
             #     self.mDev_stall()
             # else:
             #     self.mDev_stop()
@@ -1135,7 +1135,7 @@ if __name__ == "__main__":
         dev_gripper =  None
 
         for fh_dev in devs:
-            if fh_dev.C_type == '--TROLLEY--':
+            if fh_dev.C_type == DevType.TROLLEY:
                 if fh_dev.dev_mDC:
                     dev_trolley = fh_dev.dev_mDC 
                 elif fh_dev.dev_mDC:
@@ -1143,7 +1143,7 @@ if __name__ == "__main__":
                 else: 
                     print_err(f'Unsupported TROLLEY device: {fh_dev}') 
 
-            elif fh_dev.C_type == '--GRIPPERv3--':
+            elif fh_dev.C_type == DevType.GRIPPERv3:
                 if fh_dev.dev_mDC:
                     dev_gripper = fh_dev.dev_mDC 
                 elif fh_dev.dev_mDC:

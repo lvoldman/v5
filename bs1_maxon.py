@@ -23,6 +23,7 @@ from queue import Queue
 
 
 from bs1_utils import print_log, print_inf, print_err, print_DEBUG, exptTrace, s16, s32, num2binstr, set_parm, get_parm, void_f, assign_parm
+from bs2_config import DevType
 
 print_DEBUG = void_f
 
@@ -236,7 +237,7 @@ class MAXON_Motor:
         self.keyHandle = None                                  # Open device Handle
         self.mDev_port:str = mxnDev.port                          # USB1,USB2, USB3 for USB..
         self.mDev_nodeID:int = mxnDev.nodeid                            # 1,2,3..
-        self.mDev_type = None                                 # devise type (--ROTATOR-- / --GRIPPERv3-- / --DIST_ROTATOR-- / --TIME_ROTATOR-- (SPINNER))
+        self.mDev_type = None                                 # devise type (DevType.ROTATOR / DevType.GRIPPERv3 / DevType.DIST_ROTATOR / DevType.TIME_ROTATOR (SPINNER))
         self.mDev_pos:int = 0                                 #  current position 
         self.el_current_limit:int = 0                       # electrical current limit to stop 
         self.el_current_on_the_fly:int = 0                  # On-the-fly current                    
@@ -878,10 +879,10 @@ class MAXON_Motor:
                     # raise Exception(f'ERROR clearing Faults. pErrorCode =  0x{pErrorCode.value:08x} / {ErrTxt(pErrorCode.value)}')
 
 
-            if self.mDev_type == '--DIST_ROTATOR--' or self.mDev_type == '--TIME_ROTATOR--' or self.mDev_type == '--TROLLEY--' or self.mDev_type == '--GRIPPERv3--':
+            if self.mDev_type == DevType.DIST_ROTATOR or self.mDev_type == DevType.TIME_ROTATOR or self.mDev_type == DevType.TROLLEY or self.mDev_type == DevType.GRIPPERv3:
                 self.el_current_limit = self.DEFAULT_CURRENT_LIMIT
             
-            if self.mDev_type == '--TIME_ROTATOR--':
+            if self.mDev_type == DevType.TIME_ROTATOR:
                 self.rotationTime = self.DEFAULT_ROTATION_TIME
 
         except Exception as ex:
@@ -929,7 +930,7 @@ class MAXON_Motor:
 
                     if (int(abs(actualCurrentValue)) > int(self.el_current_limit)):
                         print_inf(f' WatchDog MAXON: Actual Current Value = {actualCurrentValue}, Limit = {self.el_current_limit}')
-                        if (self.mDev_type == '--TROLLEY--' or self.mDev_type == '--DIST_ROTATOR--') and self.possition_control_mode:
+                        if (self.mDev_type == DevType.TROLLEY or self.mDev_type == DevType.DIST_ROTATOR) and self.possition_control_mode:
                             _pos = self.mDev_get_cur_pos()
                             if abs(_pos - self.new_pos) > self.EX_LIMIT:
                                 print_log(f'Desired position [{self.new_pos}] is not reached. Current position = {_pos}')
@@ -942,7 +943,7 @@ class MAXON_Motor:
 
 
                 
-                if self.mDev_type == '--GRIPPERv3--':
+                if self.mDev_type == DevType.GRIPPERv3:
                     end_time = time.time()
                     if end_time - self.start_time > self.GRIPPER_TIMEOUT:
                         print_inf(f' WatchDog MAXON: GRIPPER operation canceled by timeout, port = {self.mDev_port}, actual current value = {actualCurrentValue}, Limit = {self.el_current_limit}, max GRC = {max_GRC} ')
@@ -954,7 +955,7 @@ class MAXON_Motor:
                         print_inf(f' WatchDog MAXON: TIME/DIST ROTATOR operation completed, port = {self.mDev_port}, actual current value = {actualCurrentValue}, Limit = {self.el_current_limit}, max GRC = {max_GRC} ')
                         break
 
-                if (self.mDev_type == '--TROLLEY--' or self.mDev_type == '--DIST_ROTATOR--') :
+                if (self.mDev_type == DevType.TROLLEY or self.mDev_type == DevType.DIST_ROTATOR) :
 
 
                     MAXON_Motor.epos.VCS_GetQuickStopState(self.keyHandle, self.mDev_nodeID, byref(pQuickStop), byref(pErrorCode))
@@ -1709,10 +1710,10 @@ class MAXON_Motor:
             self.el_voltage =  self.DEAFULT_VELOCITY_EV_VOLTAGE
             self.rpm = self.DevOpSPEED
 
-            if self.mDev_type == '--DIST_ROTATOR--' or self.mDev_type == '--TIME_ROTATOR--' or self.mDev_type == '--TROLLEY--' or self.mDev_type == '--GRIPPERv3--':
+            if self.mDev_type == DevType.DIST_ROTATOR or self.mDev_type == DevType.TIME_ROTATOR or self.mDev_type == DevType.TROLLEY or self.mDev_type == DevType.GRIPPERv3:
                 self.el_current_limit = self.DEFAULT_CURRENT_LIMIT
             
-            if self.mDev_type == '--TIME_ROTATOR--':
+            if self.mDev_type == DevType.TIME_ROTATOR:
                 self.rotationTime = self.DEFAULT_ROTATION_TIME
 
             print_inf (f'Loading parameters for device = {self.devName}')
@@ -1810,13 +1811,13 @@ if __name__ == "__main__":
         dev_gripper =  None
 
         for mxn_dev in devs:
-            if mxn_dev.C_type == '--TROLLEY--':
+            if mxn_dev.C_type == DevType.TROLLEY:
                 if mxn_dev.dev_mDC:
                     dev_trolley = mxn_dev.dev_mDC 
                 else: 
                     print_err(f'Unsupported TROLLEY device: {mxn_dev}') 
 
-            elif mxn_dev.C_type == '--GRIPPERv3--':
+            elif mxn_dev.C_type == DevType.GRIPPERv3:
                 if mxn_dev.dev_mDC:
                     dev_gripper = mxn_dev.dev_mDC 
 

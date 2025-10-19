@@ -87,30 +87,47 @@ class JTSEcontrol:
 
 
     @staticmethod
-    def findDev(dev_name:str = 'JTSE' )->str:
+    def findDev(dev_name:str = 'JTSE', _port = None )->str:
         _res:str = None
         _ser = None
+        if _port is not None:
+            return JTSEcontrol.validatePort(dev_name, _port)
+        
         for ps in list(serial.tools.list_ports.comports()):
             try:
-                print_log(f'Looking for {dev_name} at port {ps.device} ')
-                _ser = serial.Serial(port=ps.device, baudrate = _baudrate, timeout = _timeout, parity=_parity, bytesize= _bytesize, stopbits=_stopbits)
-                _dev = JTSEcontrol.SendRcvCMD(_ser, 'RSMN')
-                if _dev == dev_name:
-                    _res = ps.device
-                    break
-            
-                if _ser is not None:
-                    _ser.close
-                    _ser.__del__()
+                if _res := JTSEcontrol.validatePort(dev_name, ps.device) is not None:
+                    return _res
                 
         
             except Exception as ex:
                 exptTrace(ex)
-                # return None
                 continue
         
         return _res
-
+    
+    @staticmethod
+    def validatePort(dev_name:str = 'JTSE', _port = None)->str:
+        _res:str = None
+        _ser = None
+        try:
+            print_log(f'Validating for {dev_name} at port {_port} ')
+            _ser = serial.Serial(port=_port, baudrate = _baudrate, timeout = _timeout, parity=_parity, bytesize= _bytesize, stopbits=_stopbits)
+            _dev = JTSEcontrol.SendRcvCMD(_ser, 'RSMN')
+            if _dev == dev_name:
+                _res = _port
+                return _res
+        
+            if _ser is not None:
+                _ser.close
+                _ser.__del__()
+            
+    
+        except Exception as ex:
+            exptTrace(ex)
+            
+            
+        return None
+                         
     @staticmethod
     def SendRcvCMD(_ser, code:str)->str:
         try:

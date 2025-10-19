@@ -39,6 +39,7 @@ from mecademic_error import mecademicErrorMsg
 from bs1_utils import print_log, print_inf, print_err, print_DEBUG, exptTrace, s16, s32, set_parm, \
                       get_parm, unsigned_16, assign_parm
 
+from bs2_config import DevType
 
 robotOpType = Enum("robotOpType", ["moveabs", "movesafe", "moverel", "moveup",  "pickup"])
 

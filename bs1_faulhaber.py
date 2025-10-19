@@ -20,7 +20,7 @@ from inputimeout  import inputimeout , TimeoutOccurred
 from queue import Queue 
 from typing import List
 
-
+from bs2_config import DevType
 from bs1_utils import print_log, print_inf, print_err, print_DEBUG, exptTrace, s16, s32, set_parm, get_parm 
 
 
@@ -382,18 +382,18 @@ class FH_Motor:
 
         print_log(f'Initiating ({ self.devName}) devise of {self.mDev_type} type on port {self.fh_port}')
         try:
-            if self.mDev_type == '--TROLLEY--':
+            if self.mDev_type == DevType.TROLLEY:
                 self.el_current_limit = self.TROLLEY_DEFAULT_CURRENT_LIMIT
                 for _cmd in TROLLEY_INIT_CMD:
                     res, answ = FH_cmd(self.mDev_ser, _cmd, self.fh_lock)
                     print_log (f"Port= {self.fh_port},  init command =  {_cmd.encode('utf-8')} with res=  {res} and reply = {answ}" )
-            elif self.mDev_type == '--GRIPPER--':
+            elif self.mDev_type == DevType.GRIPPER:
                 self.el_current_limit = self.GRIPPER_DEFAULT_CURRENT_LIMIT
                 for _cmd in GRIPPER_INIT_CMD:
                     res, answ = FH_cmd(self.mDev_ser, _cmd, self.fh_lock)
                     print_log (f"Port= {self.fh_port},  init command =  {_cmd.encode('utf-8')} with res=  {res} and reply = {answ}" )
 
-            elif self.mDev_type == '--TIME_ROTATOR--':
+            elif self.mDev_type == DevType.TIME_ROTATOR:
                 self.rotationTime = self.DEFAULT_ROTATION_TIME
                 self.el_current_limit = self.SPINNER_DEFAULT_CURRENT_LIMIT
                 for _cmd in GRIPPER_INIT_CMD:
@@ -429,7 +429,7 @@ class FH_Motor:
                     max_GRC = self.el_current_on_the_fly if self.el_current_on_the_fly > max_GRC else max_GRC
                     if (self.el_current_on_the_fly > int(self.el_current_limit)):
                         print_log(f'GRC = {self.el_current_on_the_fly}, Limit = {self.el_current_limit}')
-                        if (self.mDev_type == '--TROLLEY--' ) and self.possition_control_mode:
+                        if (self.mDev_type == DevType.TROLLEY ) and self.possition_control_mode:
                                 _pos = self.mDev_get_cur_pos()
                                 if abs(_pos - self.new_pos) > EX_LIMIT:
                                     print_log(f'Desired position [{self.new_pos}] is not reached. Current position = {_pos}')
@@ -442,7 +442,7 @@ class FH_Motor:
                     break
                 
 
-                if self.mDev_type == '--GRIPPER--':
+                if self.mDev_type == DevType.GRIPPER:
                     end_time = time.time()
                     if end_time - self.start_time > self.GRIPPER_TIMEOUT:
                         print_log(f'GRIPPER operation canceled by timeout, port = {self.fh_port}, current GRC = {int(answ)}, Limit = {self.el_current_limit}, max GRC = {max_GRC} ')
@@ -451,14 +451,14 @@ class FH_Motor:
                         print_log(f'Serial port init break returns - {answ}')
                         break
 
-                if self.mDev_type == '--TIME_ROTATOR--':
+                if self.mDev_type == DevType.TIME_ROTATOR:
                     end_time = time.time()
                     if end_time - self.start_time > self.rotationTime:
                         print_log(f' WatchDog FAULHABER: TIME ROTATOR operation completed, port = {self.fh_port}, current GRC = {int(answ)}, Limit = {self.el_current_limit}, max GRC = {max_GRC} ')
                         break
 
 
-                if self.mDev_type == '--TROLLEY--' and self.possition_control_mode :
+                if self.mDev_type == DevType.TROLLEY and self.possition_control_mode :
                     fh_cmd = 'OST'
                     res, answ = FH_cmd(self.mDev_ser, fh_cmd, self.fh_lock)
                     fh_op_status = int (answ)
@@ -518,11 +518,11 @@ class FH_Motor:
         answ = None
         try:
 
-            if self.mDev_type == '--TROLLEY--':
+            if self.mDev_type == DevType.TROLLEY:
                 cmd_seq.append(f'EN')                          # re-enabling motor (only trolley gets disabled 
                 cmd_seq.append(f'SP 0')                #  SP - Load Maximum Speed
                 cmd_seq.append(f'v 0')
-            elif self.mDev_type == '--GRIPPER--' or self.mDev_type == '--TIME_ROTATOR--':
+            elif self.mDev_type == DevType.GRIPPER or self.mDev_type == DevType.TIME_ROTATOR:
                 cmd_seq.append("u 0")
             else:
                 raise Exception (f'FAULHABER ilegal type on stalling op')
@@ -549,9 +549,9 @@ class FH_Motor:
 
     def  mDev_stop(self) -> bool:
 
-        if self.mDev_type == '--TROLLEY--':
+        if self.mDev_type == DevType.TROLLEY:
             fh_cmd = "v 0"   
-        elif self.mDev_type == '--GRIPPER--' or self.mDev_type == '--TIME_ROTATOR--':
+        elif self.mDev_type == DevType.GRIPPER or self.mDev_type == DevType.TIME_ROTATOR:
             fh_cmd = "u 0"
         else:
             print_log(f'FAULHABER ilegal type on stoping')
@@ -560,7 +560,7 @@ class FH_Motor:
         self.mDev_in_motion = False
         try:
 
-            if self.mDev_type == '--TROLLEY--':
+            if self.mDev_type == DevType.TROLLEY:
 
                 if self.__stall_flag:
                     res, answ = self.mDev_stall()
@@ -775,13 +775,13 @@ class FH_Motor:
         try:
 
 
-            if self.mDev_type == '--TROLLEY--':
+            if self.mDev_type == DevType.TROLLEY:
                 cmd_seq.append(f'EN')                          # re-enabling motor (only trolley gets disabled 
                 rpm = int(self.rpm) * (-1)
                 cmd_seq.append(f'SP {abs(rpm)}')                #  SP - Load Maximum Speed
                 cmd_seq.append(f'v {rpm}')
 
-            elif self.mDev_type == '--GRIPPER--' or self.mDev_type == '--TIME_ROTATOR--':
+            elif self.mDev_type == DevType.GRIPPER or self.mDev_type == DevType.TIME_ROTATOR:
                 cmd_seq.append(f'u {self.el_voltage}')
                 fh_cmd = f'u {self.el_voltage}'
 
@@ -826,13 +826,13 @@ class FH_Motor:
         try:
 
 
-            if self.mDev_type == '--TROLLEY--':
+            if self.mDev_type == DevType.TROLLEY:
                 cmd_seq.append(f'EN')                          # re-enabling motor (only trolley gets disabled 
                 rpm = int(self.rpm) 
                 cmd_seq.append(f'SP {abs(rpm)}')
                 cmd_seq.append(f'v {rpm}')
 
-            elif self.mDev_type == '--GRIPPER--' or  self.mDev_type == '--TIME_ROTATOR---':
+            elif self.mDev_type == DevType.GRIPPER or  self.mDev_type == DevType.TIME_ROTATOR:
                 cmd_seq.append(f'u {self.el_voltage}')
                 fh_cmd = f'u {self.el_voltage * (-1)}'
 
@@ -919,14 +919,14 @@ class FH_Motor:
         self.DevOpSPEED = self.DEAFULT_TROLLEY_RPM
         self.rpm = self.DEAFULT_TROLLEY_RPM 
 
-        if self.mDev_type == '--TROLLEY--':
+        if self.mDev_type == DevType.TROLLEY:
             self.el_current_limit = self.TROLLEY_DEFAULT_CURRENT_LIMIT
             
-        elif self.mDev_type == '--GRIPPER--':
+        elif self.mDev_type == DevType.GRIPPER:
             self.el_current_limit = self.GRIPPER_DEFAULT_CURRENT_LIMIT
             
 
-        elif self.mDev_type == '--TIME_ROTATOR--':
+        elif self.mDev_type == DevType.TIME_ROTATOR:
             self.rotationTime = self.DEFAULT_ROTATION_TIME
             self.el_current_limit = self.SPINNER_DEFAULT_CURRENT_LIMIT
             
@@ -1011,7 +1011,7 @@ if __name__ == "__main__":
 
         window = sg.Window('Unitest', layout, finalize = True)
 
-        from bs1_config import port_scan
+        from bs2_config import port_scan
         print(f'Scanning ports')
         devs = port_scan()
 
@@ -1021,7 +1021,7 @@ if __name__ == "__main__":
         
         # gripper = FH_Motor(m_port, m_baudrate, m_timeout)
        
-        # if not gripper.init_dev('--GRIPPER--'):
+        # if not gripper.init_dev(DevType.GRIPPER):
         #     print_log(f'Gripper initiation failed on port {m_port}')
         #     del gripper
         #     sys.exit()
@@ -1030,11 +1030,11 @@ if __name__ == "__main__":
         dev_rotator = None
 
         for fh_dev in devs:
-            if fh_dev.C_type == '--TROLLEY--':
+            if fh_dev.C_type == DevType.TROLLEY:
                 dev_trolley = fh_dev.dev_mDC 
-            elif fh_dev.C_type == '--GRIPPER--' or  fh_dev.C_type == '--TIME_ROTATOR--':
+            elif fh_dev.C_type == DevType.GRIPPER or  fh_dev.C_type == DevType.TIME_ROTATOR:
                 dev_gripper = fh_dev.dev_mDC 
-            elif fh_dev.C_type == '--TIME_ROTATOR--':
+            elif fh_dev.C_type == DevType.TIME_ROTATOR:
                 dev_rotator = fh_dev.dev_mDC 
 
         if dev_trolley:

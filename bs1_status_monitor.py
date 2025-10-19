@@ -18,7 +18,7 @@ from queue import Queue
 from enum import Enum
 from bs1_DH_RB_modbus import MAX_DH_ANGLE
 from Motors_Control_Dashboard import SetLED
-
+from bs2_config import DevType
 
 tSync = Enum("tSync", ["start", "stop", "cont"])
 
@@ -56,48 +56,48 @@ class StatusMonitor:
     
         for m_dev in  self.__devs_list:
 
-            if m_dev.C_type == '--TROLLEY--' or m_dev.C_type == '--GRIPPER--' \
-                    or m_dev.C_type == '--GRIPPERv3--' \
-                    or m_dev.C_type == '--DIST_ROTATOR--' or m_dev.C_type == '--TIME_ROTATOR--' \
-                    or m_dev.C_type == '--DH--' :
+            if m_dev.C_type == DevType.TROLLEY or m_dev.C_type == DevType.GRIPPER \
+                    or m_dev.C_type == DevType.GRIPPERv3 \
+                    or m_dev.C_type == DevType.DIST_ROTATOR or m_dev.C_type == DevType.TIME_ROTATOR \
+                    or m_dev.C_type == DevType.DH :
                 
-                # if realTime and not (m_dev.C_type == '--DH--') :
+                # if realTime and not (m_dev.C_type == DevType.DH) :
                 if realTime :
                     new_pos = m_dev.dev_mDC.mDev_get_cur_pos()
                 else:
                     new_pos = m_dev.dev_mDC.mDev_stored_pos()
 
                 otf_cur = m_dev.dev_mDC.el_current_on_the_fly
-                if m_dev.C_type == '--TROLLEY--':
+                if m_dev.C_type == DevType.TROLLEY:
                     self.__window[f'-{m_dev.c_gui}-TROLLEY_POSSITION-'].update(value = new_pos)
                     self.__window[f'-{m_dev.c_gui}-TROLLEY_CUR_DISPLAY-'].update(value = otf_cur)
 
-                elif m_dev.C_type == '--DH--':
+                elif m_dev.C_type == DevType.DH:
                     # if int(new_pos) > (MAX_DH_ANGLE/2):
                     #     new_pos = new_pos - MAX_DH_ANGLE
                     self.__window[f'-{m_dev.c_gui}-DH_GRIPPER_POSSITION-'].update(value = new_pos)    
 
                 
 
-                elif m_dev.C_type == '--GRIPPERv3--':
+                elif m_dev.C_type == DevType.GRIPPERv3:
                     self.__window[f'-{m_dev.c_gui}-GRIPPER_POSSITION-'].update(value = new_pos)
                     self.__window[f'-{m_dev.c_gui}-GRIPPER_CUR_DISPLAY-'].update(value = otf_cur)
-                elif m_dev.C_type == '--GRIPPER--':
+                elif m_dev.C_type == DevType.GRIPPER:
                     self.__window[f'-{m_dev.c_gui}-GRIPPER_CUR_DISPLAY-'].update(value = otf_cur)
-                elif m_dev.C_type == '--DIST_ROTATOR--':
+                elif m_dev.C_type == DevType.DIST_ROTATOR:
                     self.__window[f'-{m_dev.c_gui}-DIST_ROTATOR_POSSITION-'].update(value = new_pos)
                     self.__window[f'-{m_dev.c_gui}-DIST_ROTATOR_CUR_DISPLAY-'].update(value = otf_cur)
-                elif m_dev.C_type == '--TIME_ROTATOR--':
+                elif m_dev.C_type == 'DevType.TIME_ROTATOR':
                     # self.__window[f'-{m_dev.c_gui}-TIME_ROTATOR_CUR_DISPLAY-'].update(value = otf_cur)
                     self.__window[f'-TIME_ROTATOR_CUR_DISPLAY-'].update(value = otf_cur)
-            elif m_dev.C_type == '--HMP--':
+            elif m_dev.C_type == DevType.HMP:
                 _ave = m_dev.dev_hmp.getAve()
                 self.__window[f'-HMP-RES-'].update(value = _ave)
                 self.__window[f'-HMP-CURR-RES-'].update(value = m_dev.dev_hmp.getCurrRT())
                 self.__window[f'-HMP-VOLT-RES-'].update(value = m_dev.dev_hmp.getVoltRT())
 
 
-            elif m_dev.C_type == '--ZABER--':
+            elif m_dev.C_type == DevType.ZABER:
                 
                 if realTime:
                     new_pos = m_dev.dev_zaber.GetPos()
@@ -106,7 +106,7 @@ class StatusMonitor:
                     
                 self.__window[f'-{m_dev.c_gui:02d}-ZABER-POSSITION-'].update(value = new_pos)
             
-            elif  '--MARCO--' in m_dev.C_type:
+            elif  DevType.MARCO in m_dev.C_type:
                 self.__window[f'-MARCO_ACTUAL_TEMP-'].update(value = m_dev.dev_marco.get_temp())  
                 self.__window[f'-MARCO_PULSE_COUNT_AFTER_RESET-'].update(value = m_dev.dev_marco.get_pulse_count_since_last_reset())  
                 # self.__window[f'-MARCO_PROGRAM-'].update(value = m_dev.dev_marco.progNum)  
@@ -116,7 +116,7 @@ class StatusMonitor:
                     self.__window[f'-MARCO_SINGLE_SHOT_OFF-'].update(button_color='tomato on red')
                     self.__window[f'-MARCO_SINGLE_SHOT_ON-'].update(button_color='white on green')
             
-            elif '--MCDMC--' in m_dev.C_type:
+            elif DevType.MCDMC in m_dev.C_type:
                 if m_dev.dev_mcdmc.isCognexOnline:
                     SetLED (self.__window, '_cognex_', 'green')
                 else:
@@ -138,10 +138,10 @@ class StatusMonitor:
                 self.__window[f'-CGNX_UP_SIDE_DOWN-'].update(value = _info.up_side_down)
                 self.__window[f'-CGNX_OUT_OF_RANGE-'].update(value = _info.out_of_range)
             
-            elif ('--DB--'  in m_dev.C_type) and ('-CGNX_PROCEEDED_PRODUCT-' in self.__window.AllKeysDict):
+            elif (DevType.DB  in m_dev.C_type) and ('-CGNX_PROCEEDED_PRODUCT-' in self.__window.AllKeysDict):
                 self.__window[f'-CGNX_PROCEEDED_PRODUCT-'].update(value = m_dev.dev_DB.success_counter)
             
-            elif ('--JTSE--' in m_dev.C_type) and ('-JBC_TEMP-' in self.__window.AllKeysDict): 
+            elif (DevType.JTSE in m_dev.C_type) and ('-JBC_TEMP-' in self.__window.AllKeysDict): 
                 self.__window[f'-JBC_TEMP-'].update(value = m_dev.dev_jtse.RAT)
                 
             
@@ -152,21 +152,21 @@ class StatusMonitor:
 
 
     def __updatePayloadStatus(self, m_dev, statusData, pos):
-        if m_dev.C_type == '--TROLLEY--':
+        if m_dev.C_type == DevType.TROLLEY:
             statusData[f'T{m_dev.c_gui}'] = dict()
             statusData[f'T{m_dev.c_gui}']["encoder"] = pos
-        elif m_dev.C_type == '--GRIPPER--':
+        elif m_dev.C_type == DevType.GRIPPER:
             statusData[f'G{m_dev.c_gui}'] = dict()
             statusData[f'G{m_dev.c_gui}']["encoder"] = 0 if m_dev.dev_mDC.gripper_onof else 1
-        elif m_dev.C_type == '--GRIPPERv3--':
+        elif m_dev.C_type == DevType.GRIPPERv3:
             statusData[f'G{m_dev.c_gui}'] = dict()
             statusData[f'G{m_dev.c_gui}']["encoder"] = pos
-        elif m_dev.C_type == '--DIST_ROTATOR--':
+        elif m_dev.C_type == DevType.DIST_ROTATOR:
             statusData[f'R{m_dev.c_gui}'] = dict()
             statusData[f'R{m_dev.c_gui}']["encoder"] = pos
-        elif m_dev.C_type == '--TIME_ROTATOR--':
+        elif m_dev.C_type == 'DevType.TIME_ROTATOR':
             pass
-        elif m_dev.C_type == '--ZABER--':
+        elif m_dev.C_type == DevType.ZABER:
             statusData[f'Z{m_dev.c_gui}'] = dict()
             statusData[f'Z{m_dev.c_gui}']["encoder"] = pos
 

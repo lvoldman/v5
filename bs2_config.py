@@ -1,3 +1,5 @@
+# from __future__ import annotations
+
 __author__ = "Leonid Voldman"
 __copyright__ = "Copyright 2024"
 __credits__ = ["VoldmanTech"]
@@ -36,6 +38,8 @@ from bs1_io_control import IOcontrol
 from bs1_festo_modbus import Festo_Motor
 from bs1_sqlite import StatisticSQLite 
 from bs1_jtse_serial import  JTSEcontrol
+from enum import Enum
+
 
 
 from zaber_motion import Units, MotionLibException, MovementFailedException
@@ -46,6 +50,7 @@ from bs1_utils import print_log, print_inf, print_err, print_DEBUG, exptTrace, s
 print_DEBUG = void_f
 
 
+DevType = Enum("DevType", ["TIME_ROTATOR", "DIST_ROTATOR", "TROLLEY", "GRIPPER", "GRIPPERv3", "ZABER", "DAQ_NI", "HMP", "PHG", "CAM", "DH", "MCDMC", "MARCO", "INTERLOCK", "IOCONTROL", "JTSE"])
 
 
 ZABER_ID = 1027
@@ -58,28 +63,171 @@ fh_break_duration = bs1_faulhaber.fh_break_duration
 
 getDevbySN = lambda devs, sn: next((_dev for _dev, _sn in devs.items() if _sn == sn), None)
 
+class CDev:
+    
+    # notificationQ = Queue()
 
-class SysConfigBasic(ABC):
+    def __init__(self, C_type, C_port, c_id, c_serialN, c_dev = None, c_gui=None):
+        self.C_type = C_type
+        self.C_port = C_port
+        self.c_id = c_id
+        self.c_serialN = c_serialN
+        self.c_gui = c_gui
+
+        self.__device:baseDev = c_dev
+
+    '''
+#------- Bad practice --------
+        self.dev_mDC = None
+        self.dev_zaber = None        
+        self.dev_ni = None
+        self.dev_cam = None
+        self.dev_hmp = None
+        self.dev_phg  = None
+        self.dev_mcdmc = None
+        self.dev_marco = None
+        self.dev_interlock = None
+        self.dev_iocontrol = None
+        self.dev_DB = None
+        self.dev_jtse = None
+
+    def get_device(self):
+        if self.dev_mDC:
+            return self.dev_mDC
+        elif self.dev_zaber:
+            return self.dev_zaber
+        elif self.dev_ni:
+            return self.dev_ni
+        elif self.dev_cam:
+            return self.dev_cam
+        elif self.dev_hmp:
+            return self.dev_hmp
+        elif self.dev_phg:
+            return self.dev_phg
+        elif self.dev_mcdmc:
+            return self.dev_mcdmc
+        elif self.dev_marco:
+            return self.dev_marco
+        elif self.dev_interlock:
+            return self.dev_interlock
+        elif self.dev_iocontrol:
+            return self.dev_iocontrol
+        elif self.dev_DB:
+            return self.dev_DB
+        elif self.dev_jtse:
+            return self.dev_jtse
+
+        else:
+            print_err(f'ERROR, unkmown device - {self}')
+            return None
+#------- Bad practice --------
+    '''
+
+    def get_device(self):                       # for backward compatability 
+        return self.__device
+
+    @property
+    def device(self):
+        return self.__device
+
+
+
+    def __repr__(self) -> str:
+        # r_str = f'[CDev]: Type={self.C_type}, port={self.C_port}, serialN={self.c_serialN}, GUI ID={self.c_gui}, vendorID={self.c_id}'
+        r_str = f'[CDev: {self.C_type}{self.c_gui}]'
+        return (r_str)
+        
+    def __del__(self):
+
+        print_log(f'Deleteing device {self} on port {self.C_port}')
+        _dev = self.get_device()
+        if _dev is not None:
+            del _dev
+
+
+
+
+class systemDevices:
+    def __init__(self, _conf_file:str=None, _params_file:str=None):
+        self.__devs:dict = dict()    # {dev_name1: CDev1, dev_name2: CDev2, ...}
+        self.__conf_file = _conf_file
+        self.__params_file = _params_file   
+        self.__platform_devs:abstractPlatformDevs = None
+
+        try:
+            with open(self.__params_file) as p_file:
+                doc = yaml.safe_load(p_file)
+                if doc is not None:
+                    if 'AMS_NETID' in doc.values():
+                        self.__platform_devs = plcPlatformDevs(self.__conf_file, self.__params_file)
+                    else:
+                        self.__platform_devs = pcPlatformDevs(self.__conf_file, self.__params_file) 
+
+
+                    
+
+        except Exception as ex:
+            print_err(f'Error reading parameters file, exception = {ex}')
+            exptTrace(ex)
+            pass        
+
+        self.port_scan()
+
+    def __getitem__(self, _devName:str) -> CDev:
+        return self.self.__devs[_devName]
+    
+    def __setitem__(self, _devName:str, _dev:CDev):
+        if isinstance(_dev, CDev):
+            self.__devs[_devName] = _dev
+        else:
+            raise Exception(f'Wrong device type {_dev} ({type(_dev)}), expected CDev type')
+        
+    
+    # for backward compatability    
+    def port_scan(self) -> list:
+        # scan ports and add devices defined in the configuration file
+        self.__platform_devs.loadConf(self)
+        return self.__devs.values() 
+    
+    # for backward compatability    
+    def append(self, _devName:str, _dev:CDev):
+        self[_devName] = _dev
+
+
+class abstractPlatformDevs(ABC):
 
     def __init__(self, __conf_file:str=None, _params_file:str=None):
-        
-        ###  allDevs dict: {'TR': {"T1": 12345, "T2": 23456}, 'GR': {"G1": 34567}, 'ZB': {"Z1": 45678, "Z2": 56789}, 'RT': {"R1": 67890}, \
-        #  'SP': {"S1": 78901}, 'CAM': {"CAM1": "192.160.1.1"}, 'NI': {"DAQ1": 4098}, 'HMP': {"H1": "12345"}, 'PHG': {"P1": "12345"}, '--DH--': {"D1": 12345}, '--MCDMC--': {"MCDMC1": "12345"}, '--MARCO--': {"DISP1": "12345"}, '--INTERLOCK--': {"LCK1": "DAQ1"}, '--IOCONTROL--': {"IO1": "provider, port.line, NO/NC"}}
+
+        ###  allDevs dict: 
+        # for PLC platform: 
+        #       {'AMS_NETID': '123.456.78.90.1.1'}
+        # for PC platform:
+        #       {'TR': {"T1": 12345, "T2": 23456}, 'GR': {"G1": 34567}, 'ZB': {"Z1": 45678, "Z2": 56789}, 'RT': {"R1": 67890}, \
+        #       'SP': {"S1": 78901}, 'CAM': {"CAM1": "124.45.67.89:123"}, 'NI': {"DAQ1": 4098}, 'HMP': {"H1": "12345"}, 'PHG': {"RELAY_NAME_1": "123456/7, TOGGLE|TRIGGER|ONOFF, TRUE|FALSE"}, 'DH': {"D1": 12345}, 'MCDMC': {"MCDMC1": "12345"}, 'MARCO': {"DISP1": "123.45.67.89:123"}, 'INTERLOCK': {"LCK1": "DAQ1"}, 'IOCONTROL': {"IO_NAME_1": "provider, port.line, NO/NC"}}
         self.allDevs:dict = None
         self.allParams:dict = None
     
     @abstractmethod
-    def loadConf(self):
+    def loadConf(self, _sysDevs:systemDevices):
         pass
     
     def __getitem__(self, _devType):
-        return self.DevallDevsConf[_devType]
+        return self.allDevs[_devType]
     
     def __setitem__(self, _devType, _devList):
         raise Exception(f'Unsupported bracket notation ([]) operation')
     
     def getDevs(self):
         return self.allDevs
+    
+
+class plcPlatformDevs(abstractPlatformDevs):
+    def __init__(self, _config_file:str = None, _params_file:str = None):
+        super().__init__()
+    
+    def loadConf(self, _sysDevs:systemDevices):
+        pass
+
 
 '''
 params file (params.yml) format w/examples:
@@ -276,7 +424,7 @@ JTSE:
 
 '''   
 
-class pcPlatformDevs(SysConfigBasic):
+class pcPlatformDevs(abstractPlatformDevs):
     devTypesTbl:dict = {'TR':'T', 'GR':'G', 'ZB':'Z', 'RT':'R', 'SP':'S', 'NI':'DAQ', 'CAM':'CAM', 'HMP':'H', \
                    'DH':'D', 'PHG':'*', 'MCDMC':'MCDMC', 'MARCO':'DISP', 'INTERLOCK':'LCK', 'IOCONTROL':'*', \
                     'JTSE':'*'}
@@ -286,9 +434,11 @@ class pcPlatformDevs(SysConfigBasic):
         self.__params_file = _params_file
         self._serialPorts:dict = dict()   # {port: {'vid':, 'description':, 'hwid':, 'serial_number':, 'location':, 'manufacturer':, 'product':, 'interface':} }
         self.freeStyleDevs:set = set()
+        self.__params_table:dict =  pcPlatformDevs.read_params(self.__params_file)  
+                                                        # {devName: {parm1: value1, parm2: value2, ...}, ...}
         
 
-    def loadConf(self):
+    def loadConf(self, _sysDevs:systemDevices):
         
         print_log(f'PC based devices operation. Load configuration from {self.__config_file} configuration file')
        
@@ -343,15 +493,41 @@ class pcPlatformDevs(SysConfigBasic):
             sys.exit()
             # return False
         else:
-            
             print_log(f'')
 
-    def __mapSerialDevs(self):
+
+    @staticmethod
+    def read_params(params_file) -> dict:
+        print_inf(f'Read params from file {params_file}')
+        params_table = dict()
+        
+        try:
+            with open(params_file) as p_file:
+                doc = yaml.safe_load(p_file)
+                for dev, dev_parms in doc.items():       # devivce parm is a dictionary 
+                    params_table[dev] = dict()
+                    for i, parm in enumerate(dev_parms):
+                        params_table[dev][parm] = dev_parms[parm]
+
+                print_log(f'params_table={params_table}')
+
+                    
+
+        except Exception as ex:
+            print_err(f'Error reading parameters file, exception = {ex}')
+            exptTrace(ex)
+            pass
+        
+        return params_table
+
+
+
+    def __addSerialDevs(self, _sysDevs:systemDevices):
         try:
 
             # Seial port devices: ZB, FAULHABER (TR, GR, SP), HMP, DH, JTSE
             serialDevsClasses = set(['ZB', 'TR', 'GR', 'SP', 'HMP', 'DH', 'JTSE'])
-            faulhaberTypes = [ 'TR', 'GR', 'SP']
+            faulhaberTypes = set([ 'TR', 'GR', 'SP'])
             configuredDevs = set(self.allDevs.keys())
 
             # if 'ZB'  not in configuredDevsList and 'TR' not in configuredDevsList and \
@@ -385,141 +561,177 @@ class pcPlatformDevs(SysConfigBasic):
                                     continue
 
 
-                                i_dev = CDev('--TROLLEY--', ps.device, ps.vid, _fhSN, list(self.allDevs['TR'].keys()).index(_devName)+1)
-                                dev_trolley = FH_Motor(ps.device, fh_baudrate, fh_timeout, params_table, f'T{TROLLEY.index(serN)+1}',  cur_pos = start_pos)
-                                i_dev.dev_mDC = dev_trolley
+                                dev_trolley = FH_Motor(ps.device, fh_baudrate, fh_timeout, self.__params_table, _devName)
+                                i_dev = CDev(DevType.TROLLEY, ps.device, ps.vid, _fhSN, dev_trolley, list(self.allDevs['TR'].keys()).index(_devName)+1)
 
                                 if not dev_trolley.init_dev(i_dev.C_type):
                                     print_log(f'Trolley initiation failed on port {ps.device}')
                                     del dev_trolley
                                     continue
 
-                                devs.append(i_dev)
+                                _sysDevs[_devName] = i_dev
+                                # devs.append(i_dev)
 
-                            elif serN in GRIPPER:
-                                # i_dev = CDev('--GRIPPER--', ps.device, ps.vid, ps.serial_number, GRIPPER.index(serN)+1)
-                                i_dev = CDev('--GRIPPER--', ps.device, ps.vid, serN, GRIPPER.index(serN)+1)
-                                dev_gripper = FH_Motor(ps.device, fh_baudrate, fh_timeout, params_table, f'G{GRIPPER.index(serN)+1}')
-                                i_dev.dev_mDC = dev_gripper
+                            elif _fhSN in self.allDevs['GR'].values():
+                                _devName = getDevbySN(self.allDevs['GR'], _fhSN)
+                                if _devName is None:
+                                    print_err(f'ERROR: Something went wrong while retriving Faulhaber GRIPPER dev name with S/N = {serN} ')
+                                    continue
+
+
+                                dev_gripper = FH_Motor(ps.device, fh_baudrate, fh_timeout, self.__params_table, _devName)
+                                i_dev = CDev(DevType.GRIPPER, ps.device, ps.vid, _fhSN, dev_gripper, list(self.allDevs['GR'].keys()).index(_devName)+1)
 
                                 if not dev_gripper.init_dev(i_dev.C_type):
                                     print_log(f'Gripper initiation failed on port {ps.device}')
                                     del dev_gripper
                                     continue
 
-                                devs.append(i_dev)
+                                _sysDevs[_devName] = i_dev
+                                # devs.append(i_dev)
 
-                            elif serN in SPINNER:
-                                i_dev = CDev('--TIME_ROTATOR--', ps.device, ps.vid, serN, SPINNER.index(serN)+1)
-                                i_dev.dev_mDC = FH_Motor(ps.device, fh_baudrate, fh_timeout, params_table, f'S{SPINNER.index(serN)+1}')
-
-                                if not i_dev.dev_mDC.init_dev(i_dev.C_type):
-                                    print_log(f'TIME ROTATOR initiation failed on port {ps.device}')
-                                    del i_dev.dev_mDC
+                            elif _fhSN in self.allDevs['SP'].values():
+                                _devName = getDevbySN(self.allDevs['SP'], _fhSN)
+                                if _devName is None:
+                                    print_err(f'ERROR: Something went wrong while retriving Faulhaber SPINNER dev name with S/N = {serN} ')
                                     continue
 
-                                devs.append(i_dev)
+
+                                dev_spinner = FH_Motor(ps.device, fh_baudrate, fh_timeout, self.__params_table, _devName)
+                                i_dev = CDev(DevType.TIME_ROTATOR, ps.device, ps.vid, _fhSN, dev_gripper, dev_spinner, list(self.allDevs['SP'].keys()).index(_devName)+1)
+
+                                if not dev_spinner.init_dev(i_dev.C_type):
+                                    print_log(f'Spinner initiation failed on port {ps.device}')
+                                    del dev_spinner
+                                    continue
+
+                                _sysDevs[_devName] = i_dev
+                                # devs.append(i_dev)
+
                             else :
                                 print_log (f'Undefined device on port {ps.device} with s/n {serN}')
                                 continue
                             
                             print_log(f'Added FAULHABER device on port {ps.device} with s/n {serN}')
-                            
 
-                
-            if ps.vid == ZABER_ID:
-                if ps.description.split()[0] == 'HAMEG':
-                    try:
-            
-                        for ind, sn in enumerate(HMP):
-                
-                            if ps.description.split()[0] == sn:
-                                print_log(f'Trying add HMP device on port {ps.device}, s/n = {sn}')
-                                guiIND = HMP.index(sn)+1
-                                i_dev = CDev('--HMP--', ps.device, ps.description, \
-                                                ps.serial_number, guiIND)
-                                i_dev.dev_hmp = HMP_PS(sn=sn, port=ps.device, parms=params_table)
-                                devs.append(i_dev)
-                                print_log(f'HAMEG device with SN = {sn} succesfully added')
-                                
-                            else:
-                                print_err(f'HAMEG device with SN = {sn} can not be detected')
+                        else:           # Faulhaber device on port  can not be recognized
+                            pass
 
-        
-                    except Exception as ex:
-                        print_log(f"Fail to add HAMEG device. Exception: {ex}")
-                        exptTrace(ex)
-                elif not ((sn := DH_ROB_RGI_modbus.find_server(ps.device)) == None):
-
-                    print_log(f'Trying add DH Robotics device on port {ps.device}, s/n = {sn}')
-                    if not sn in DH:
-                        print_log(f'Found device with sn = {sn} is not configured in the system')
                     else:
-                        guiIND = DH.index(sn)+1
-                        i_dev = CDev('--DH--', ps.device, None, \
-                                        sn, guiIND)
-                        i_dev.dev_mDC = DH_ROB_RGI_modbus(sn=sn, port=ps.device, d_name = f'D{DH.index(sn)+1}', parms=params_table)
-                        if not i_dev.dev_mDC.init_dev(i_dev.C_type):
-                            print_err(f'Can not initiate DH Robotics devivce on port {ps.device}')
+                        print_log(f'No Faulhaber devices configured in the system')        
+
+                
+                elif ps.vid == ZABER_ID:
+                    if ps.description.split()[0] == 'HAMEG':
+                        print_log(f'Found HAMEG device on port {ps.device}')
+                        i_dev =  None
+                        if len(self.allDevs['HMP'].values()) > 0:
+                            try:
+                                for sn in enumerate(self.allDevs['HMP'].values()):
+                                    # if ps.serial_number == sn:
+                                    if ps.description.split()[0] == sn:
+                                        _devName = getDevbySN(self.allDevs['HMP'], sn)
+                                        guiIND = list(self.allDevs['HMP'].keys()).index(_devName)+1
+                                        hmp_dev = HMP_PS(sn=sn, port=ps.device, parms=self.__params_table)
+                                        i_dev = CDev(DevType.HMP, ps.device, ps.description,
+                                                        ps.serial_number, hmp_dev, guiIND)
+
+                                        print_log(f'HMP device added on port {ps.device}, s/n = {sn}')
+                                        _sysDevs[_devName] = i_dev
+                                        # devs.append(i_dev)
+                                        break
+                                if i_dev is None:
+                                    print_log(f'HAMEG device found on port {ps.device} is not configured in the system')                                        
+
+                            except Exception as ex:
+                                print_log(f"Fail to add HAMEG device. Exception: {ex}")
+                                exptTrace(ex)
                         else:
-                            devs.append(i_dev)
-                            print_log(f'DH Robotics device with SN = {sn} succesfully added on port {ps.device}')
+                            print_log(f'No HAMEG devices configured in the system')
 
-                else:               # ZABER
-                    try:
-                        
-                        if not Zaber_Motor.init_devs(ps.device):
-                            print_log(f'Error initiation ZABER.')
-                            continue
+                    elif (len(self.allDevs['DH'].values()) > 0) and (sn := DH_ROB_RGI_modbus.find_server(ps.device)) is not None:
 
-                        z_len = len(Zaber_Motor.device_port_list[ps.device]["device_list"])
-                        print_log (f'{z_len} ZABER devices will be added')
+                        print_log(f'Trying add DH Robotics device on port {ps.device}, s/n = {sn}')
+                        if not sn in self.allDevs['DH'].values():
+                            print_log(f'Found device with sn = {sn} is not configured in the system')
+                        else:
+                            _devName = getDevbySN(self.allDevs['DH'], sn)
+                            guiIND = list(self.allDevs['DH'].keys()).index(_devName)+1
 
-                        for ind in range (z_len):
+                            dh_dev = DH_ROB_RGI_modbus(sn=sn, port=ps.device, d_name = _devName, parms=self.__params_table)
+                            i_dev = CDev(DevType.DH, ps.device, None, \
+                                            sn, dh_dev, guiIND)
+                            if not dh_dev.init_dev(i_dev.C_type):
+                                print_err(f'Can not initiate DH Robotics devivce on port {ps.device}')
+                            else:
+                                _sysDevs[_devName] = i_dev
+                                # devs.append(i_dev)
+                                print_log(f'DH Robotics device with SN = {sn} succesfully added on port {ps.device}')
+
+                    else:               # ZABER
+                        try:
+                            if len(self.allDevs['ZB'].values()) > 0 and Zaber_Motor.init_devs(ps.device):        
+                                                                                # if ZABER devices are configured and initilized
+                                print_log(f'ZABER DEVICES on port {ps.device} have been initialized')
+
+                                z_len = len(Zaber_Motor.device_port_list[ps.device]["device_list"])
+                                print_log (f'{z_len} ZABER devices will be added')
+
+                                for ind in range (z_len):
+                                        
+                                    axes, device_id, identity, d_name, d_serial_number = Zaber_Motor.GetInfo(ind, ps.device)
+
+
+                                    print_log (f'Device has {axes} axes')
+                                    print_log (f'DeviceID: {device_id}')
+                                    print_log (f'Device identity: {identity}')
+                                    print_log (f'Device name: {d_name}')
+                                    serN = int(d_serial_number)
+                                    print_log (f'Device serialNumber: {d_serial_number}/{serN}')
+                                    
+                                    devName = getDevbySN(self.allDevs['ZB'], serN)
+                                    if devName is None:
+                                        print_err(f'ERROR: ZABER dev name with S/N = {serN} is not configured in the system')
+                                        continue
+                                    
+                                    guiIND = list(self.allDevs['ZB'].keys()).index(_devName)+1
+                                    dev_zaber = Zaber_Motor(ind, ps.device, self.__params_table, devName)
+                                    i_dev = CDev(DevType.ZABER, ps.device, device_id, serN, \
+                                                        dev_zaber, guiIND)
+                                    
+                                    _sysDevs[_devName] = i_dev
+                                    # devs.append(i_dev)
+                                    print_log(f'Added ZABER device on port {ps.device} with s/n {serN}')
                                 
-                            axes, device_id, identity, d_name, d_serial_number = Zaber_Motor.GetInfo(ind, ps.device)
-
-
-                            print_log (f'Device has {axes} axes')
-                            print_log (f'DeviceID: {device_id}')
-                            print_log (f'Device identity: {identity}')
-                            print_log (f'Device name: {d_name}')
-                            serN = int(d_serial_number)
-                            print_log (f'Device serialNumber: {d_serial_number}/{serN}')
-                            
-                            if serN in ZABER:
-                                i_dev = CDev('--ZABER--', ps.device, device_id, serN, \
-                                                    ZABER.index(d_serial_number)+1)
-                                i_dev.dev_zaber = Zaber_Motor(ind, ps.device, params_table, f'Z{ZABER.index(serN)+1}')
-                                devs.append(i_dev)
-                                print_log(f'Added ZABER device on port {ps.device} with s/n {serN}')
-                            else :
-                                print_log (f'Undefined device on port {ps.device} with s/n {serN}')
-
-                
-                
-                    except MotionLibException as ex:
-                        print_log(f'There no ZABER devices on port {ps.device}')
-                        print_log(f"Exception: {ex}")
                         
-            if len(JTSE) > 0:
-                print_log(f'Looking for {JTSE[0]} blower')
-                try:
-                    _com = JTSEcontrol.findDev(JTSE[0])
-                    if _com is None or _com == '':
-                        print_log('No JTSE found')
-                    else:
-                        i_dev = CDev('--JTSE--', _com, None, \
-                                            None, None)
-                        i_dev.dev_jtse = JTSEcontrol(JTSE[0], _com)
-                        devs.append(i_dev)
-                        print_log(f'JBC/JTSE dev ({JTSE[0]}) at port {_com} succesfully added')
+                        
+                        except MotionLibException as ex:
+                            print_log(f'There was error adding ZABER devices on port {ps.device}')
+                            print_log(f"Exception: {ex}")
+                            
+                if len(self.allDevs['JTSE'].values()) > 0 and isinstance(self.allDevs['JTSE'], dict):
+                    devName = list(self.allDevs['JTSE'].keys())[0]
+                    _the_first_device = list(self.allDevs['JTSE'].values())[0]
 
-                except Exception as ex:
-                    print_log(f"Fail to adding JTSE. Exception: {ex}")
-                    exptTrace(ex)
-            else:
-                print_log(f'No JTSE blower configured')
+                    print_log(f'Looking for devName /{_the_first_device}/ blower on port {ps.device}')
+                    try:
+                        _com = JTSEcontrol.findDev(_the_first_device, ps.device)
+                        if _com is None or _com == '':
+                            print_log('No JTSE found')
+                        else:
+                            dev_jtse = JTSEcontrol(devName, _com)
+                            i_dev = CDev(DevType.JTSE, _com, None, \
+                                                None, dev_jtse, None)
+                           
+                            _sysDevs[_devName] = i_dev
+                            # devs.append(i_dev)
+                            print_log(f'JBC/JTSE dev ({devName}) at port {_com} succesfully added')
+
+                    except Exception as ex:
+                        print_log(f"Fail to adding JTSE. Exception: {ex}")
+                        exptTrace(ex)
+                else:
+                    print_log(f'No JTSE blower configured')
 
 
         except Exception as ex:
@@ -543,7 +755,7 @@ class pcPlatformDevs(SysConfigBasic):
 '''
 CDev - data class
 
-C_type = device type: --TROLLEY-- / --GRIPPER-- / --GRIPPERv3--/ --ZABER--/ --DIST_ROTATOR-- / --TIME_ROTATOR-- (SPINNER) / --CAM-- / --DAQ-NI-- / --HMP-- / --PHG-- / --DH-- / --INTERLOCK-- / --IOCONTROL--
+C_type = device type: DevType.TROLLEY / DevType.GRIPPER / DevType.GRIPPERv3/ DevType.ZABER/ DevType.DIST_ROTATOR / DevType.TIME_ROTATOR (SPINNER) / DevType.CAM / DevType.DAQ-NI / DevType.HMP / DevType.PHG / DevType.DH / DevType.INTERLOCK / DevType.IOCONTROL
 C_port = COM port (COM1/COM2/.../COMn) /  Port number for FHv3 / IP for cam / None for DAQ NI-6002 / USB port for MAXON / COMn for HMP
 c_id = vendor ID for COM port devices (ZABER_ID, HMD = 1027 / FAULHABER_ID = 2134) / device info for FHv3 / none for CAM  / model for DAQ / dev info for MAXON/ None for DH
 c_serialN = device serial number (when available)
@@ -577,83 +789,13 @@ For final version will be the single refernce.
 
 
 '''
-
-class CDev:
-    
-    # notificationQ = Queue()
-
-    def __init__(self, C_type, C_port, c_id, c_serialN, c_gui=None):
-        self.C_type = C_type
-        self.C_port = C_port
-        self.c_id = c_id
-        self.c_serialN = c_serialN
-        self.c_gui = c_gui
-
-
-#------- Bad practice --------
-        self.dev_mDC = None
-        self.dev_zaber = None        
-        self.dev_ni = None
-        self.dev_cam = None
-        self.dev_hmp = None
-        self.dev_phg  = None
-        self.dev_mcdmc = None
-        self.dev_marco = None
-        self.dev_interlock = None
-        self.dev_iocontrol = None
-        self.dev_DB = None
-        self.dev_jtse = None
-
-    def get_device(self):
-        if self.dev_mDC:
-            return self.dev_mDC
-        elif self.dev_zaber:
-            return self.dev_zaber
-        elif self.dev_ni:
-            return self.dev_ni
-        elif self.dev_cam:
-            return self.dev_cam
-        elif self.dev_hmp:
-            return self.dev_hmp
-        elif self.dev_phg:
-            return self.dev_phg
-        elif self.dev_mcdmc:
-            return self.dev_mcdmc
-        elif self.dev_marco:
-            return self.dev_marco
-        elif self.dev_interlock:
-            return self.dev_interlock
-        elif self.dev_iocontrol:
-            return self.dev_iocontrol
-        elif self.dev_DB:
-            return self.dev_DB
-        elif self.dev_jtse:
-            return self.dev_jtse
-
-        else:
-            print_err(f'ERROR, unkmown device - {self}')
-            return None
-#------- Bad practice --------
-
-    def __repr__(self) -> str:
-        # r_str = f'[CDev]: Type={self.C_type}, port={self.C_port}, serialN={self.c_serialN}, GUI ID={self.c_gui}, vendorID={self.c_id}'
-        r_str = f'[CDev: {self.C_type}{self.c_gui}]'
-        return (r_str)
-        
+class baseDev(ABC):
+    def __init__(self):
+        pass
     def __del__(self):
+        pass
 
-        print_log(f'Deleteing device {self} on port {self.C_port}')
-        _dev = self.get_device()
-        if _dev is not None:
-            del _dev
 
-        # if self.dev_mDC:
-        #     del self.dev_mDC
-        #     self.dev_mDC = None
-
-        # if self.dev_zaber:
-        #     del self.dev_zaber
-        #     self.dev_zaber =  None
 
 
 
@@ -744,8 +886,8 @@ def port_scan(configuration_file = 'serials.yml', params_file = 'params.yml')->L
                 continue
             else:
                 if serN in TROLLEY:
-                    # i_dev = CDev('--TROLLEY--', ps.device, ps.vid, ps.serial_number, TROLLEY.index(serN)+1)
-                    i_dev = CDev('--TROLLEY--', ps.device, ps.vid, serN, TROLLEY.index(serN)+1)
+                    # i_dev = CDev(DevType.TROLLEY, ps.device, ps.vid, ps.serial_number, TROLLEY.index(serN)+1)
+                    i_dev = CDev(DevType.TROLLEY, ps.device, ps.vid, serN, TROLLEY.index(serN)+1)
                     dev_trolley = FH_Motor(ps.device, fh_baudrate, fh_timeout, params_table, f'T{TROLLEY.index(serN)+1}',  cur_pos = start_pos)
                     i_dev.dev_mDC = dev_trolley
 
@@ -757,8 +899,8 @@ def port_scan(configuration_file = 'serials.yml', params_file = 'params.yml')->L
                     devs.append(i_dev)
 
                 elif serN in GRIPPER:
-                    # i_dev = CDev('--GRIPPER--', ps.device, ps.vid, ps.serial_number, GRIPPER.index(serN)+1)
-                    i_dev = CDev('--GRIPPER--', ps.device, ps.vid, serN, GRIPPER.index(serN)+1)
+                    # i_dev = CDev(DevType.GRIPPER, ps.device, ps.vid, ps.serial_number, GRIPPER.index(serN)+1)
+                    i_dev = CDev(DevType.GRIPPER, ps.device, ps.vid, serN, GRIPPER.index(serN)+1)
                     dev_gripper = FH_Motor(ps.device, fh_baudrate, fh_timeout, params_table, f'G{GRIPPER.index(serN)+1}')
                     i_dev.dev_mDC = dev_gripper
 
@@ -770,7 +912,7 @@ def port_scan(configuration_file = 'serials.yml', params_file = 'params.yml')->L
                     devs.append(i_dev)
 
                 elif serN in SPINNER:
-                    i_dev = CDev('--TIME_ROTATOR--', ps.device, ps.vid, serN, SPINNER.index(serN)+1)
+                    i_dev = CDev(DevType.TIME_ROTATOR, ps.device, ps.vid, serN, SPINNER.index(serN)+1)
                     i_dev.dev_mDC = FH_Motor(ps.device, fh_baudrate, fh_timeout, params_table, f'S{SPINNER.index(serN)+1}')
 
                     if not i_dev.dev_mDC.init_dev(i_dev.C_type):
@@ -798,7 +940,7 @@ def port_scan(configuration_file = 'serials.yml', params_file = 'params.yml')->L
                         if ps.description.split()[0] == sn:
                             print_log(f'Trying add HMP device on port {ps.device}, s/n = {sn}')
                             guiIND = HMP.index(sn)+1
-                            i_dev = CDev('--HMP--', ps.device, ps.description, \
+                            i_dev = CDev(DevType.HMP, ps.device, ps.description, \
                                             ps.serial_number, guiIND)
                             i_dev.dev_hmp = HMP_PS(sn=sn, port=ps.device, parms=params_table)
                             devs.append(i_dev)
@@ -818,7 +960,7 @@ def port_scan(configuration_file = 'serials.yml', params_file = 'params.yml')->L
                     print_log(f'Found device with sn = {sn} is not configured in the system')
                 else:
                     guiIND = DH.index(sn)+1
-                    i_dev = CDev('--DH--', ps.device, None, \
+                    i_dev = CDev(DevType.DH, ps.device, None, \
                                     sn, guiIND)
                     i_dev.dev_mDC = DH_ROB_RGI_modbus(sn=sn, port=ps.device, d_name = f'D{DH.index(sn)+1}', parms=params_table)
                     if not i_dev.dev_mDC.init_dev(i_dev.C_type):
@@ -850,7 +992,7 @@ def port_scan(configuration_file = 'serials.yml', params_file = 'params.yml')->L
                         print_log (f'Device serialNumber: {d_serial_number}/{serN}')
                         
                         if serN in ZABER:
-                            i_dev = CDev('--ZABER--', ps.device, device_id, serN, \
+                            i_dev = CDev(DevType.ZABER, ps.device, device_id, serN, \
                                                 ZABER.index(d_serial_number)+1)
                             i_dev.dev_zaber = Zaber_Motor(ind, ps.device, params_table, f'Z{ZABER.index(serN)+1}')
                             devs.append(i_dev)
@@ -907,22 +1049,22 @@ def port_scan(configuration_file = 'serials.yml', params_file = 'params.yml')->L
 
                 
                 if devFHv3.serialN in ROTATOR:
-                    devStr = '--DIST_ROTATOR--'
+                    devStr = DevType.DIST_ROTATOR
                     guiIND = ROTATOR.index(devFHv3.serialN)+1
                     devName = f'R{guiIND}'
                     
                 elif devFHv3.serialN in SPINNER:
-                    devStr = '--TIME_ROTATOR--'
+                    devStr = DevType.TIME_ROTATOR
                     guiIND = SPINNER.index(devFHv3.serialN)+1
                     devName = f'S{guiIND}'
 
                 elif devFHv3.serialN in GRIPPER:
-                    devStr = '--GRIPPERv3--'
+                    devStr = DevType.GRIPPERv3
                     guiIND = GRIPPER.index(devFHv3.serialN)+1
                     devName = f'G{guiIND}'
 
                 elif devFHv3.serialN in TROLLEY:
-                    devStr = '--TROLLEY--'
+                    devStr = DevType.TROLLEY
                     guiIND = TROLLEY.index(devFHv3.serialN)+1
                     devName = f'T{guiIND}'
                 
@@ -972,22 +1114,22 @@ def port_scan(configuration_file = 'serials.yml', params_file = 'params.yml')->L
 
                 
                 if devMAXON.sn in ROTATOR:
-                    devStr = '--DIST_ROTATOR--'
+                    devStr = DevType.DIST_ROTATOR
                     guiIND = ROTATOR.index(devMAXON.sn)+1
                     devName = f'R{guiIND}'
                     
                 elif devMAXON.sn in SPINNER:
-                    devStr = '--TIME_ROTATOR--'
+                    devStr = DevType.TIME_ROTATOR
                     guiIND = SPINNER.index(devMAXON.sn)+1
                     devName = f'S{guiIND}'
 
                 elif devMAXON.sn in GRIPPER:
-                    devStr = '--GRIPPERv3--'
+                    devStr = DevType.GRIPPERv3
                     guiIND = GRIPPER.index(devMAXON.sn)+1
                     devName = f'G{guiIND}'
 
                 elif devMAXON.sn in TROLLEY:
-                    devStr = '--TROLLEY--'
+                    devStr = DevType.TROLLEY
                     guiIND = TROLLEY.index(devMAXON.sn)+1
                     devName = f'T{guiIND}'
                 
@@ -1023,7 +1165,7 @@ def port_scan(configuration_file = 'serials.yml', params_file = 'params.yml')->L
             if found_dev:
                 # guiIND = ind + 1
                 guiIND = NI.index(sn)+1
-                i_dev = CDev('--DAQ-NI--', found_dev.device, found_dev.model, \
+                i_dev = CDev(DevType.DAQ-NI, found_dev.device, found_dev.model, \
                                  found_dev.sn, guiIND)
                 i_dev.dev_ni = NI6002( f'DAQ{guiIND}', sn, params_table)
                 devs.append(i_dev)
@@ -1034,7 +1176,7 @@ def port_scan(configuration_file = 'serials.yml', params_file = 'params.yml')->L
                 print_log(f'Adding Interlock for NI DAQ{guiIND}')
                 for interIndex, interDev in enumerate(INTERLOCK):
                     if interDev == f'DAQ{guiIND}':
-                        intlck_dev = CDev('--INTERLOCK--', None, None, \
+                        intlck_dev = CDev(DevType.INTERLOCK, None, None, \
                                  None, interIndex+1)
                         intlck_dev.dev_interlock = InterLock(f'LCK{interIndex+1}', interDev, params_table)
                         devs.append(intlck_dev)
@@ -1062,7 +1204,7 @@ def port_scan(configuration_file = 'serials.yml', params_file = 'params.yml')->L
                     print_err(f'No FESTO device found at IP = {ip}')
                     continue
 
-                i_dev = CDev('--ZABER--', ip, '502', _sn, \
+                i_dev = CDev(DevType.ZABER, ip, '502', _sn, \
                                                 ZABER.index(ip)+1)
                 i_dev.dev_zaber = Festo_Motor(_sn, ip, f'Z{ZABER.index(serN)+1}', params_table)
                 devs.append(i_dev)
@@ -1101,7 +1243,7 @@ def port_scan(configuration_file = 'serials.yml', params_file = 'params.yml')->L
                     _NO = False
                 else:
                     _NO = True
-            i_dev = CDev('--IOCONTROL--', C_port=_pl, c_id=__io_provider, c_serialN=0, c_gui=None)
+            i_dev = CDev(DevType.IOCONTROL, C_port=_pl, c_id=__io_provider, c_serialN=0, c_gui=None)
             i_dev.dev_iocontrol = IOcontrol(dev_name, __io_provider, __line, __port, params_table, _NO)
             devs.append(i_dev)
 
@@ -1187,7 +1329,7 @@ def port_scan(configuration_file = 'serials.yml', params_file = 'params.yml')->L
                             #         print_err(f'ERROR -- unknown type: {_itm}. Device will not be added')
                             #         break
                     if _dType:
-                        i_dev = CDev('--PHG--', found_dev.channelName, found_dev.channelClassName, \
+                        i_dev = CDev(DevType.PHG, found_dev.channelName, found_dev.channelClassName, \
                                         found_dev.devSN, guiIND)
                         i_dev.dev_phg = PhidgetRELAY(sn, chan, _dType, _dName, params_table)
                         devs.append(i_dev)
@@ -1219,7 +1361,7 @@ def port_scan(configuration_file = 'serials.yml', params_file = 'params.yml')->L
                 if found_dev:
                     # guiIND = ind + 1
                     guiIND = CAM.index(connection)+1
-                    i_dev = CDev('--CAM--', connection, None, \
+                    i_dev = CDev(DevType.CAM, connection, None, \
                                     None, guiIND)
                     i_dev.dev_cam = Cam_modbus(ip, port, params_table, f'CAM{guiIND}')
                     devs.append(i_dev)
@@ -1255,7 +1397,7 @@ def port_scan(configuration_file = 'serials.yml', params_file = 'params.yml')->L
                     found_dev = robotMecademic.find_avilable(_ipAddr, __asyrilIPort)
                     if found_dev:
                         guiIND = MCDMC.index(_ipAddr)+1
-                        i_dev = CDev('--MCDMC--', _ipAddr, None, \
+                        i_dev = CDev(DevType.MCDMC, _ipAddr, None, \
                                         None, guiIND)
                         i_dev.dev_mcdmc = robotMecademic(f'MCDMC{guiIND}', _ipAddr,  params_table)
                         devs.append(i_dev)
@@ -1271,7 +1413,7 @@ def port_scan(configuration_file = 'serials.yml', params_file = 'params.yml')->L
                     found_dev = robotMeca500.find_avilable(_ipAddr)
                     if found_dev:
                         guiIND = MCDMC.index(_ipAddr)+1
-                        i_dev = CDev('--MCDMC--', _ipAddr, None, \
+                        i_dev = CDev(DevType.MCDMC, _ipAddr, None, \
                                         None, guiIND)
                         i_dev.dev_mcdmc = robotMeca500(f'MCDMC{guiIND}', _ipAddr,  params_table)
                         devs.append(i_dev)
@@ -1300,7 +1442,7 @@ def port_scan(configuration_file = 'serials.yml', params_file = 'params.yml')->L
                 if found_dev:
 
                     guiIND = MARCO.index(connection)+1
-                    i_dev = CDev('--MARCO--', connection, None, \
+                    i_dev = CDev(DevType.MARCO, connection, None, \
                                     None, guiIND)
                     i_dev.dev_marco = Marco_modbus(ip, port, params_table, f'DISP{guiIND}' )
                     devs.append(i_dev)
@@ -1323,7 +1465,7 @@ def port_scan(configuration_file = 'serials.yml', params_file = 'params.yml')->L
             if _com is None or _com == '':
                 print_log('No JTSE found')
             else:
-                i_dev = CDev('--JTSE--', _com, None, \
+                i_dev = CDev(DevType.JTSE, _com, None, \
                                     None, None)
                 i_dev.dev_jtse = JTSEcontrol(JTSE[0], _com)
                 devs.append(i_dev)
@@ -1340,7 +1482,7 @@ def port_scan(configuration_file = 'serials.yml', params_file = 'params.yml')->L
     try:
         _db = assign_parm('DB', params_table, 'DB_NAME', 'production.db')
         _tbl = assign_parm('DB', params_table, 'TBL_NAME', 'statistic')
-        i_dev = CDev('--DB--', C_port=None, c_id=None, c_serialN=None, c_gui=None)
+        i_dev = CDev(DevType.DB, C_port=None, c_id=None, c_serialN=None, c_gui=None)
         i_dev.dev_DB = StatisticSQLite('DB', _db, _tbl)
         if not i_dev.dev_DB.StartDB():
             raise Exception(f'Error initiation DB operation')
