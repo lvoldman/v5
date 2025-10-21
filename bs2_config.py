@@ -50,7 +50,7 @@ from bs1_utils import print_log, print_inf, print_err, print_DEBUG, exptTrace, s
 print_DEBUG = void_f
 
 
-DevType = Enum("DevType", ["TIME_ROTATOR", "DIST_ROTATOR", "TROLLEY", "GRIPPER", "GRIPPERv3", "ZABER", "DAQ_NI", "HMP", "PHG", "CAM", "DH", "MCDMC", "MARCO", "INTERLOCK", "IOCONTROL", "JTSE"])
+DevType = Enum("DevType", ["TIME_ROTATOR", "DIST_ROTATOR", "TROLLEY", "GRIPPER", "GRIPPERv3", "ZABER", "DAQ_NI", "HMP", "PHG", "CAM", "DH", "MCDMC", "MARCO", "INTERLOCK", "IOCONTROL", "JTSE", "DB"])
 
 
 ZABER_ID = 1027
@@ -63,9 +63,29 @@ fh_break_duration = bs1_faulhaber.fh_break_duration
 
 getDevbySN = lambda devs, sn: next((_dev for _dev, _sn in devs.items() if _sn == sn), None)
 
+
+
+'''
+CDev - data class
+
+C_type = device type: DevType.TROLLEY / DevType.GRIPPER / DevType.GRIPPERv3/ DevType.ZABER/ DevType.DIST_ROTATOR / DevType.TIME_ROTATOR (SPINNER) / DevType.CAM / DevType.DAQ-NI / DevType.HMP / DevType.PHG / DevType.DH / DevType.INTERLOCK / DevType.IOCONTROL
+C_port = COM port (COM1/COM2/.../COMn) /  Port number for FHv3 / IP for cam / None for DAQ NI-6002 / USB port for MAXON / COMn for HMP
+c_id = vendor ID for COM port devices (ZABER_ID, HMD = 1027 / FAULHABER_ID = 2134) / device info for FHv3 / none for CAM  / model for DAQ / dev info for MAXON/ None for DH
+c_serialN = device serial number (when available)
+c_gui = GUI_ID ( number of the device in the GUI sequensce: 1,2,3,...) (when available)
+
+c_dev / __device = reference to the actual device class (Zaber_Motor / FH_Motor / FH_Motor_v3 / NI6002 / HMP_PS / PhidgetRELAY / Cam_modbus / DH_ROB_RGI_modbus / robotMecademic / robotMeca500 / Marco_modbus / InterLock / IOcontrol / StatisticSQLite / JTSEcontrol )
+
+
+----
+separate for ecah device - for compatability/debugging only
+For final version will be the single refernce.
+
+
+
+'''
+
 class CDev:
-    
-    # notificationQ = Queue()
 
     def __init__(self, C_type, C_port, c_id, c_serialN, c_dev = None, c_gui=None):
         self.C_type = C_type
@@ -127,7 +147,7 @@ class CDev:
         return self.__device
 
     @property
-    def device(self):
+    def cDevice(self):
         return self.__device
 
 
@@ -377,7 +397,8 @@ OMNIPULSE:
 '''   
 
 '''
-Config file: AMS_NETID 
+Config file: 
+AMS_NETID: 123.456.78.90
 OR if it's not defined (empty) in the system enviroment variables, it will be read from the config file
 Config file (serials.yml) format w/examples:
 # Grippers
@@ -428,12 +449,13 @@ class pcPlatformDevs(abstractPlatformDevs):
     devTypesTbl:dict = {'TR':'T', 'GR':'G', 'ZB':'Z', 'RT':'R', 'SP':'S', 'NI':'DAQ', 'CAM':'CAM', 'HMP':'H', \
                    'DH':'D', 'PHG':'*', 'MCDMC':'MCDMC', 'MARCO':'DISP', 'INTERLOCK':'LCK', 'IOCONTROL':'*', \
                     'JTSE':'*'}
+    freeStyleDevs:set = set()
     def __init__(self, _config_file:str = 'serials.yml', _params_file:str = 'params.yml'):
         super().__init__(_config_file, _params_file)
         self.__config_file = _config_file
         self.__params_file = _params_file
         self._serialPorts:dict = dict()   # {port: {'vid':, 'description':, 'hwid':, 'serial_number':, 'location':, 'manufacturer':, 'product':, 'interface':} }
-        self.freeStyleDevs:set = set()
+        
         self.__params_table:dict =  pcPlatformDevs.read_params(self.__params_file)  
                                                         # {devName: {parm1: value1, parm2: value2, ...}, ...}
         
@@ -442,38 +464,55 @@ class pcPlatformDevs(abstractPlatformDevs):
         
         print_log(f'PC based devices operation. Load configuration from {self.__config_file} configuration file')
        
-        dev_class = None
+        self.allDevs = pcPlatformDevs.read_configuration(self.__config_file)
+        self.__addSerialDevs(_sysDevs)
+        self.__addFHv3Devs(_sysDevs)
+        self.__addMaxonDevs(_sysDevs)
+        self.__addDAQDevs(_sysDevs)
+        self.__addIODevs(_sysDevs)
+        self.__addPHGDevs(_sysDevs)
+        self.__addCamDevs(_sysDevs)
+        self.__addMecademicDevs(_sysDevs)
+        self.__addMarcoDevs(_sysDevs)
+        self.__addDHDevs(_sysDevs)  
+        
+
+
+    @staticmethod
+    def read_configuration(configuration_file:str) -> dict:
+        _dev_class = None
         _devices = None
+        _allDevs = dict()
         
         try:
-            with open(self.__config_file) as conf_file:
+            with open(configuration_file) as conf_file:
 
-                self.allDevs = yaml.safe_load(conf_file)
-                print_log(f'conf. file = {self.allDevs}')
-                for dev_class, _devices in self.allDevs.items():       # devs is a dictionary 
-                    print_log(f'dev_class = {dev_class}, _devices = {_devices}')
+                _allDevs = yaml.safe_load(conf_file)
+                print_log(f'conf. file = {_allDevs}')
+                for _dev_class, _devices in _allDevs.items():       # devs is a dictionary 
+                    print_log(f'_dev_class = {_dev_class}, _devices = {_devices}')
                     if _devices == None:
-                        print_err(f'Error: Empty device list for dev type {dev_class},  removed')
-                        self.allDevs.pop(dev_class)
+                        print_err(f'Error: Empty device list for dev type {_dev_class},  removed')
+                        _allDevs.pop(_dev_class)
                         
                     elif not isinstance(_devices, dict) or len(_devices) == 0:
-                        print_err(f'Warning: Wrong device list format (or empty) for dev type {dev_class},  removed')
-                        self.allDevs.pop(dev_class)
+                        print_err(f'Warning: Wrong device list format (or empty) for dev type {_dev_class},  removed')
+                        _allDevs.pop(_dev_class)
                         
-                    elif pcPlatformDevs.devTypesTbl[dev_class] == '*':
+                    elif pcPlatformDevs.devTypesTbl[_dev_class] == '*':
                         # for IO control and Phidgets relay we don't know the device ID format, 
                         # so we just verify name uniqueness
                         for _dev in _devices.items():
-                            if _dev in self.freeStyleDevs:   
-                                print_err(f'Error: The device {_dev} of dev class {dev_class} is already defined, removed')
+                            if _dev in pcPlatformDevs.freeStyleDevs:   
+                                print_err(f'Error: The device {_dev} of dev class {_dev_class} is already defined, removed')
                                 _devices.pop(_dev)
                             else:       
-                                self.freeStyleDevs.add(dev_class)
+                                pcPlatformDevs.freeStyleDevs.add(_dev_class)
                         if len(_devices) == 0:
                             print_err(f'No valid devices for dev class {_devices}. Removed')
-                            self.allDevs.pop(_devices)
+                            _allDevs.pop(_devices)
                     else:
-                        _dev_re += fr'{pcPlatformDevs.devTypesTbl[dev_class]}\d*'
+                        _dev_re += fr'{pcPlatformDevs.devTypesTbl[_dev_class]}\d*'
                         _dev_re_compiled = re.compile(_dev_re)
                         for _dev in _devices.items():
                             if not _dev_re_compiled.match(_dev):
@@ -481,20 +520,20 @@ class pcPlatformDevs(abstractPlatformDevs):
                                 _devices.pop(_dev)
                         if len(_devices) == 0:
                             print_err(f'No valid devices for dev class {_devices}. Removed')
-                            self.allDevs.pop(_devices)
+                            _allDevs.pop(_devices)
 
-                print_log(f'All valid devices in confiration: {self.allDevs}')
+                print_log(f'All valid devices in confiration: {_allDevs}')
                         
             
         except Exception as ex:
             print_log(f'Exception -> {ex} of type {type(ex)}')
-            print_log(f'Wrong configuration format in class: {dev_class} [list: {_devices}]')
+            print_log(f'Wrong configuration format in class: {_dev_class} [list: {_devices}]')
             exptTrace(ex)
-            sys.exit()
-            # return False
+            
         else:
             print_log(f'')
 
+        return _allDevs
 
     @staticmethod
     def read_params(params_file) -> dict:
@@ -744,51 +783,510 @@ class pcPlatformDevs(abstractPlatformDevs):
                 
 
 
-     
+    def __addFHv3Devs(self, _sysDevs:systemDevices):
+        FHv3Types = set([ 'TR', 'GR', 'SP', 'RT'])
+        configuredDevs = set(self.allDevs.keys())
+
+        if len(FHv3Types & configuredDevs) == 0:
+            print_log(f'No Faulhaber v3 devices defined in the configuration')
+            return
+                
+        print_log('Scanning FHv3 comunnication (USB) ports')
+        
+        try:
+            FHv3Devs = FH_Motor_v3.init_devices()
+            print_log(f'FHv3 devs - {FHv3Devs}')
+
+            if FHv3Devs == None or len(FHv3Devs) == 0:
+                print_log(f'No Faulhaber v3 devices were found')
+                return
+
+            FHv3_len = len(FHv3Devs)
+
+            print_log (f'{FHv3_len} Faulhaber v3 devices could be added')
+
+            for ind in range(len(FHv3Devs)):
+                devFHv3 = FHv3Devs[ind]
+                print_log (f'{ind} -> {devFHv3.devinfo}, s/n = {devFHv3.serialN}')
+
+                
+                if devFHv3.serialN in self.allDevs['RT'].values():
+                    devType = DevType.DIST_ROTATOR
+                    devName = getDevbySN(self.allDevs['RT'], devFHv3.serialN)
+                    guiIND = list(self.allDevs['RT'].keys()).index(devName)+1
+                    
+                elif devFHv3.serialN in self.allDevs['SP'].values():
+                    devType = DevType.TIME_ROTATOR
+                    devName = getDevbySN(self.allDevs['SP'], devFHv3.serialN)
+                    guiIND = list(self.allDevs['SP'].keys()).index(devName)+1
+
+                elif devFHv3.serialN in self.allDevs['GR'].values():
+                    devType = DevType.GRIPPERv3
+                    devName = getDevbySN(self.allDevs['GR'], devFHv3.serialN)
+                    guiIND = list(self.allDevs['GR'].keys()).index(devName)+1
+
+                elif devFHv3.serialN in self.allDevs['TR'].values():
+                    devType = DevType.TROLLEY
+                    devName = getDevbySN(self.allDevs['TR'], devFHv3.serialN)
+                    guiIND = list(self.allDevs['TR'].keys()).index(devName)+1
+
+                else :
+                    print_log (f'Undefined FHv3 device: {devFHv3}')
+                    continue
+
+                dev_mDC = FH_Motor_v3(int(devFHv3.port), int(devFHv3.channel), self.__params_table, devName)
+                i_dev = CDev(devType, devFHv3.port, devFHv3.devinfo, \
+                                devFHv3.serialN, dev_mDC, guiIND)
+                
+                if not dev_mDC.init_dev(i_dev.C_type):
+                    print_log(f'FHv3 initiation failed for device: {i_dev}')
+                    del i_dev
+                    continue
+                
+                _sysDevs[devName] = i_dev
+                # devs.append(i_dev)
+                
+                print_log(f'Added FHv3 device: {devFHv3}')
+
+        except Exception as ex:
+            print_log(f"Fail to add FHv3 device. Unexpected Exception: {ex}")
+            exptTrace(ex)
+        
+    
+    def __addMaxonDevs(self, _sysDevs:systemDevices):
+
+        maxonTypes = set(['GR', 'RT'])
+        configuredDevs = set(self.allDevs.keys())
+
+        if len(maxonTypes & configuredDevs) == 0:
+            print_log(f'No MAXON compitable devices defined in the configuration')
+            return
+
+        print_log('Scanning MAXON devs')
+
+        try:
+            # mxnDev = bytes(self.__params_table['DEAFULT']['MAXON_DEV'], 'utf-8')
+            # mxnIntfc = bytes(self.__params_table['DEAFULT']['MAXON_INTERFACE'], 'utf-8')
+
+            mxnDev = bytes(assign_parm('DEFAULT', self.__params_table['DEAFULT']['MAXON_DEV']), 'utf-8')
+            mxnIntfc = bytes(assign_parm('DEFAULT', self.__params_table['DEAFULT']['MAXON_INTERFACE']), 'utf-8')
+            
+            if mxnDev is None or mxnIntfc is None:
+                print_log(f'MAXON device type or interface is not correctly defined in the parameters table')
+                return
+            
+            MAXONDevs = MAXON_Motor.init_devices(mxnDev, mxnIntfc)
+            print_log(f'MAXON devs - {MAXONDevs}')
+
+            if MAXONDevs == None or len(MAXONDevs) == 0:
+                print_log(f'No MAXON devices were found')
+                return
+            MAXON_len = len(MAXONDevs)
+
+            print_log (f'{MAXON_len} MAXON devices could be added')
+
+            for ind in range(len(MAXONDevs)):
+                devMAXON = MAXONDevs[ind]
+                print_log (f'{ind} -> {devMAXON}, s/n = {devMAXON.sn}')
+
+                if devMAXON.sn in self.allDevs['RT'].values():
+                    devType = DevType.DIST_ROTATOR
+                    devName = getDevbySN(self.allDevs['RT'], devMAXON.sn)
+                    guiIND = list(self.allDevs['RT'].keys()).index(devName)+1
+
+                elif devMAXON.sn in self.allDevs['GR'].values():
+                    devType = DevType.GRIPPER
+                    devName = getDevbySN(self.allDevs['GR'], devMAXON.sn)
+                    guiIND = list(self.allDevs['GR'].keys()).index(devName)+1
+
+                else :
+                    print_log (f'Undefined MAXON device: {devMAXON}')
+                    continue
+
+                dev_mDC = MAXON_Motor(devMAXON, self.__params_table, devName)
+                i_dev = CDev(devType, devMAXON.port, devMAXON, \
+                                devMAXON.sn, dev_mDC, guiIND)
+                
+                if not dev_mDC.init_dev(i_dev.C_type):         
+                    print_log(f'MAXON initiation failed for device: {i_dev}')
+                    continue
+
+                _sysDevs[devName] = i_dev
+                # devs.append(i_dev)
+                print_log(f'Added MAXON device: {devMAXON}')
 
 
 
-         
+
+        except Exception as ex:
+            print_log(f"Fail to add MAXON device. Unexpected Exception: {ex}")
+            exptTrace(ex)
+
+    
+    def __addDAQDevs(self, _sysDevs:systemDevices):
+
+        if 'NI' not in self.allDevs.keys():
+            print_log(f'No NI DAQ devices defined in the configuration')
+            return
+        
+        NI = list(self.allDevs['NI'].values())      # serial numbers list
+
+        print_log('Looking for NI devices')
+        
+        try:
+            
+            for ind, sn in enumerate(NI):
+                found_dev = NI6002.find_devs(sn)
+                if found_dev:
+
+                    devType = DevType.DAQ_NI
+                    devName = getDevbySN(self.allDevs['NI'], sn)
+                    guiIND = list(self.allDevs['NI'].keys()).index(devName)+1
+                    
+                    dev_ni = NI6002( devName, sn, self.__params_table)
+                    i_dev = CDev(devType, found_dev.device, found_dev.model, \
+                                    found_dev.sn, dev_ni, guiIND)
+                    
+                    # devs.append(i_dev)
+                    _sysDevs[devName] = i_dev
+
+                    print_log(f'NI device with SN = {hex(sn)} ({sn}) succesfully added')
+
+
+    ##########################                
+
+                    print_log(f'Adding Interlock for NI DAQ{guiIND}')
+                    INTERLOCK = list(self.allDevs['INTERLOCK'].values()) 
+                    for interIndex, interDev in enumerate(INTERLOCK):
+                        if interDev == f'DAQ{guiIND}':
+                            iLockName = getDevbySN(self.allDevs['INTERLOCK'], interDev)
+                            dev_interlock = InterLock(iLockName, interDev, self.__params_table)
+                            i_dev = CDev(DevType.INTERLOCK, None, None, \
+                                    None, dev_interlock, interIndex+1)
+                            
+                            _sysDevs[iLockName] = i_dev
+                            # devs.append(intlck_dev)
+                            print_log(f'Interlock device {dev_interlock} assosiated with NI {i_dev} was added')
+
+    ##########################                
+                else:
+                    print_err(f'NI device with SN = {hex(sn)} ({sn}) can not be detected')
+
+        
+        except Exception as ex:
+            print_log(f"Fail to add NI device. Exception: {ex}")
+            exptTrace(ex)
+
+
+    def __addFESTODevs(self, _sysDevs:systemDevices):
+
+        if 'ZABER' not in self.allDevs.keys():
+            print_log(f'No stepper group including FESTO devices defined in the configuration')
+            return
+
+        print_log(f'Looking for FESTO in stepper group: \n{self.allDevs['ZABER']}  ')
+        try:
+            print_log(f'Looking for  FESTO devs in neighbour nodes ')
+            Festo_Motor.enum_devices()
+
+            ZABER = list(self.allDevs['ZABER'].values())      # SN/IP list
+            for ind, ip in enumerate(ZABER):
+
+                _f_rex = re.compile(r'(?:\d{1,3}\.){3}\d{1,3}')
+                if _f_rex.match(str(ip)):
+                    _sn = Festo_Motor.find_dev(ip)
+                    if _sn is None:
+                        print_err(f'No FESTO device found at IP = {ip}')
+                        continue
+
+                    devType = DevType.ZABER
+                    devName = getDevbySN(self.allDevs['ZABER'], ip)
+                    guiIND = list(self.allDevs['ZABER'].keys()).index(devName)+1
+
+                    dev_mDC = Festo_Motor(_sn, ip, devName, self.__params_table)
+                    i_dev = CDev(devType, ip, '502', _sn, dev_mDC, \
+                                                    guiIND)
+                    _sysDevs[devName] = i_dev
+                    # devs.append(i_dev)
+                    print_log(f'Added FESTO device on ip {ip} with s/n {_sn}, name = {devName}')
+
+
+        except Exception as ex:
+            exptTrace(ex)
+            print_log(f"Fail while adding FESTO devs. Exception: {ex}")
+
+# BUGBUG 
+
+    def __addIODevs(self, _sysDevs:systemDevices):
+        io_dev_dict = self.allDevs['IOCONTROL']      # {dev_name: 'provider, port.line, NO/NC', ...}
+    
+        if len(io_dev_dict) == 0:
+            print_log(f'No IO control (IOCONTROL)  devices defined in the configuration')
+            return  
+    
+        print_log(f'Looking for IO devs: \n{io_dev_dict} ')
+        
+        try:
+            
+            for dev_name, _io_ctl in io_dev_dict.items():
+                io_dev_cnf = re.compile(r'^\s*\w+\s*,\s*port\d.line\d\s*(,\s*(NO|NC)\s*)?$')
+                if  not io_dev_cnf.match(_io_ctl):
+                    raise Exception(f'Wrong format configuring IO control: {_io_ctl}')
+                
+                _pars = _io_ctl.split(',')
+                __io_provider = _pars[0].strip()
+                port_line = _pars[1].strip()
+                _pl = port_line.split('.')
+                __port = int(_pl[0][4])
+                __line = int(_pl[1][4])
+
+                _NO = True
+                _nonc = None
+                if len(_pars) == 2:
+                    _NO = True
+                elif len(_pars) == 3:
+                    _nonc = _pars[2].strip()
+                    if  _nonc.upper() == 'NC':
+                    # if  _nonc == 'NC':
+                        _NO = False
+                    else:
+                        _NO = True
+                
+                dev_iocontrol = IOcontrol(dev_name, __io_provider, __line, __port, self.__params_table, _NO)
+                i_dev = CDev(C_type=DevType.IOCONTROL, C_port=_pl, c_id=__io_provider, c_serialN=0, \
+                                        c_dev = dev_iocontrol, c_gui=None)
+                
+                # devs.append(i_dev)
+
+                print_log(f'IO control ({_pars}/{__io_provider}, {__port}.{__line}, {_NO} [{_nonc}] len = {len(_pars)}) was added for name= {dev_name} dev = {__io_provider}, port={__port}, line = {__line}, NO/^NC = {_NO}')
+        
+        except Exception as ex:
+            exptTrace(ex)
+            print_log(f"Fail to add IO CONTROL. Exception: {ex}")
+
+    
+    
+    def __addPHGDevs(self, _sysDevs:systemDevices):
+
+        phg_dev_dict = self.allDevs['PHG']      # {dev_name: 'sn/channel, type, TRUE/FALSE', ...}
+        if len(phg_dev_dict) == 0:
+            print_log(f'No Phidgets (PHG) devices defined in the configuration')
+            return      
+        
+        print_log(f'Looking for Phidgets:  \n{phg_dev_dict} ')
+        
+        try:
+            chk_lst = list()
+            for _dName, connection in phg_dev_dict.items():
+                _dType = None
+                dev_chan = re.compile(r'^\d+/\d\s*,\s*(TRIGGER|ONOFF|TOGGLE)\s*(,\s*(TRUE|FALSE))?\s*$')
+                if  dev_chan.match(connection):
+                    conf_con = connection.split(',')
+                    _sw_type = conf_con[1].strip() 
+                    sCon = conf_con[0].split('/')
+                    sn = sCon[0]
+                    chan = sCon[1]
+                    print_log(f'Looking dev. sn = {sn}, channel = {chan}')
+                    if connection in chk_lst:
+                        print_err(f'-ERROR -- SN:Channel {connection} appearce more than once for Phidget device. ')
+                        break
+                    else:
+                        chk_lst.append(connection)
+
+                    found_dev = PhidgetRELAY.find_devs(sn, chan)
+                    if found_dev: 
+                        guiIND = list(phg_dev_dict.keys()).index(_dName)+1
+                        match _sw_type:
+                            case 'TRIGGER':
+                                _dType = PhidgetRELAY.devType.trigger
+                                
+                            case 'TOGGLE':
+                                _dType = PhidgetRELAY.devType.toggle
+                                
+                            case 'ONOFF':
+                                _dType = PhidgetRELAY.devType.onoff
+                                
+                            case _:
+                                print_err(f'ERROR -- unknown type: *{_sw_type}*. Device will not be added')
+                                
+
+                        if _dType:
+                            dev_phg = PhidgetRELAY(sn, chan, _dType, _dName, self.__params_table)
+                            i_dev = CDev(DevType.PHG, found_dev.channelName, found_dev.channelClassName, \
+                                            found_dev.devSN, dev_phg, guiIND)
+                            _sysDevs[_dName] = i_dev
+                            # devs.append(i_dev)
+                            print_log(f'PHG device with SN/channel = {connection}, name = {_dName}, type = {_dType}/{_itm} succesfully added')
+                        else:
+                            print_err(f'Error adding device:  SN/channel = {connection}, name = {_dName}, type = {_dType}/{_itm}')
+                    else:
+                        print_err(f'PHG device with SN/channel = {connection}, SN = {sn}, channel = {chan} was not found')
+                else:
+                    print_log(f'Wrong format declaring Phidget: {connection}')
+        
+        except Exception as ex:
+            print_log(f"Fail to add PNG device. Exception: {ex}")
+            exptTrace(ex)
 
 
 
-'''
-CDev - data class
+    def __addCamDevs(self, _sysDevs:systemDevices):
+        if 'CAM' not in self.allDevs.keys():
+            print_log(f'No ModBus Camera devices defined in the configuration')
+            return
+        CAM = self.allDevs['CAM']     # IP:port dictionary
 
-C_type = device type: DevType.TROLLEY / DevType.GRIPPER / DevType.GRIPPERv3/ DevType.ZABER/ DevType.DIST_ROTATOR / DevType.TIME_ROTATOR (SPINNER) / DevType.CAM / DevType.DAQ-NI / DevType.HMP / DevType.PHG / DevType.DH / DevType.INTERLOCK / DevType.IOCONTROL
-C_port = COM port (COM1/COM2/.../COMn) /  Port number for FHv3 / IP for cam / None for DAQ NI-6002 / USB port for MAXON / COMn for HMP
-c_id = vendor ID for COM port devices (ZABER_ID, HMD = 1027 / FAULHABER_ID = 2134) / device info for FHv3 / none for CAM  / model for DAQ / dev info for MAXON/ None for DH
-c_serialN = device serial number (when available)
-c_gui = GUI_ID ( number of the device in the GUI sequensce: 1,2,3,...) (when available)
+        print_log('Looking for ModBus servers / Camera in {CAM}')
+        
+        try:
+            for _devName, connection in CAM.items():
+                ip_port = re.compile(r'(?:\d{1,3}\.){3}\d{1,3}:\d{1,5}')
+                if  ip_port.match(connection):
+                    sCon = connection.split(':')
+                    ip = sCon[0]
+                    port = sCon[1]
+                    found_dev = Cam_modbus.find_server(ip, port)
+                    if found_dev:
+                        # guiIND = ind + 1
+                        # guiIND = CAM.index(connection)+1
+                        guiIND = list(CAM.values()).index(connection)+1
+                        dev_cam = Cam_modbus(ip, port, self.__params_table, _devName)
+                        i_dev = CDev(DevType.CAM, connection, None, None,dev_cam, guiIND)
 
-notificationQ  = Queue() class object, used by encapsulated devices to send DONE notification event 
-
-
-Device descriptor:
-----
-dev_fh      OBSOLETE
-dev_fhv3    OBSOLETE
-dev_mxn     OBSOLETE
-
-dev_mDC
-dev_zaber 
-dev_ni
-dev_cam 
-dev_hmp
-dev_phg
-dev_marco
-dev_interlock
-dev_iocontrol
-dev_DB
-dev_jtse
-
-----
-separate for ecah device - for compatability/debugging only
-For final version will be the single refernce.
-
+                        _sysDevs[_devName] = i_dev
+                        # devs.append(i_dev)
+                        print_log(f'ModBus device {_devName} with ip = {ip}, port = {port} succesfully added')
+                        
+                    else:
+                        print_err(f'ModBus device {_devName} at {connection} can not be detected')
+                else:
+                    print_err(f'Wrong configuration format for {_devName}  to connect ModBus server / Camera = {connection}')
+        
+        except Exception as ex:
+            print_log(f"Fail to add ModBus device. Exception: {ex}")
+            exptTrace(ex)
 
 
-'''
+    def __addMecademicDevs(self, _sysDevs:systemDevices):
+
+        if 'MCDMC' not in self.allDevs.keys():
+            print_log(f'No Mecademic / Asyril  devices defined in the configuration')
+            return
+
+        print_log('Looking for Mecademic / Asyril')
+        MCDMC = self.allDevs['MCDMC']                 # Mecademic devices dictionary  {dev_name: ip_address, ...}
+
+        try:
+            for _devName, _ipAddr in MCDMC.items():
+                _ip_format = re.compile(r'(?:\d{1,3}\.){3}\d{1,3}')
+                # parm_re = re.compile(r'\b(?:\d{1,3}\.){3}\d{1,3}:\d{1,5}\b')
+                parm_re = re.compile(r'\b(?:\d{1,3}\.){3}\d{1,3}:\d{1,5}/\d{1,5}\b')
+                # _asyrilIPStr = get_parm(_devName, params_table, 'ASYRIL')
+
+                _asyrilIPStr = assign_parm(_devName, self.__params_table, 'ASYRIL',None)
+                __asyrilIPort = None if _asyrilIPStr is None else _asyrilIPStr.split('/')[0]
+                _robot_type = assign_parm(_devName, self.__params_table, 'TYPE', 'MECA500')
+
+                if _asyrilIPStr is not None and _robot_type == 'MCS500':
+                                                                        # Asyril is defined and SCARA robot (MCS500)
+                    print_log(F'Checking  for Mecademic / MCS500 ({_ipAddr}) / Asyril {_asyrilIPStr} together')
+                    if  _ip_format.match(_ipAddr) and parm_re.match(_asyrilIPStr):
+                        found_dev = robotMecademic.find_avilable(_ipAddr, __asyrilIPort)
+                        if found_dev:
+                            guiIND = list(MCDMC.keys()).index(_devName)+1
+                            # guiIND = MCDMC.index(_ipAddr)+1
+                            dev_mcdmc = robotMecademic(_devName, _ipAddr,  self.__params_table)
+                            i_dev = CDev(DevType.MCDMC, _ipAddr, None, \
+                                            None, dev_mcdmc, guiIND)
+                            
+                            _sysDevs[_devName] = i_dev
+                            # devs.append(i_dev)
+                            print_log(f'Mecademic robot at ip = {_ipAddr}, assosiated with Asyril at {_asyrilIPStr}  were succesfully added')
+                            
+                        else:
+                            print_err(f'Mecademic robot at ip = {_ipAddr}  or assosiated with Asyril at {_asyrilIPStr} can not be detected')
+                    else:
+                        print_err(f'Wrong configuration format: Mecademic robot = {_ipAddr} or Asyril = {_asyrilIPStr}')
+                elif _robot_type == 'MECA500':
+                    print_log(F'Checking  for Mecademic / MECA500 ({_ipAddr}) robot availability')
+                    if  _ip_format.match(_ipAddr):
+                        found_dev = robotMeca500.find_avilable(_ipAddr)
+                        if found_dev:
+                            guiIND = list(MCDMC.values()).index(_ipAddr)+1
+                            # guiIND = MCDMC.index(_ipAddr)+1
+                            dev_mcdmc = robotMeca500(_devName, _ipAddr,  self.__params_table)
+                            i_dev = CDev(DevType.MCDMC, _ipAddr, None, \
+                                            None, dev_mcdmc, guiIND)
+                            _sysDevs[_devName] = i_dev
+                            # devs.append(i_dev)
+                            print_log(f'Mecademic robot / MECA500 at ip = {_ipAddr} was succesfully added')
+                            
+                        else:
+                            print_err(f'Mecademic robot at ip = {_ipAddr} can not be detected')
+                    else:
+                        print_err(f'Wrong configuration format: Mecademic robot = {_ipAddr} ')                
+        
+        except Exception as ex:
+            print_log(f"Fail to add Mecademic device. Exception: {ex}")
+            exptTrace(ex)
+
+        
+    def __addMarcoDevs(self, _sysDevs:systemDevices):  
+        if 'MARCO' not in self.allDevs.keys():
+            print_log(f'No ModBus Marco devices defined in the configuration')
+            return
+        MARCO = self.allDevs['MARCO']     # {devName: 'IP:port'} dictionary  
+        print_log('Looking for ModBus Marco')
+        
+        try:
+            for _devName, connection in MARCO.items():  # 
+                ip_port = re.compile(r'(?:\d{1,3}\.){3}\d{1,3}:\d{1,5}')
+                if  ip_port.match(connection):
+                    sCon = connection.split(':')
+                    ip = sCon[0]
+                    port = sCon[1]
+                    found_dev = Marco_modbus.find_server(ip, port)
+                    if found_dev:
+
+                        # guiIND = MARCO.index(connection)+1
+                        guiIND = list(MARCO.values()).index(connection)+1
+                        dev_marco = Marco_modbus(ip, port, self.__params_table, _devName )
+                        i_dev = CDev(DevType.MARCO, connection, None, None, dev_marco, guiIND)
+                        _sysDevs[_devName] = i_dev
+                        # devs.append(i_dev)
+                        print_log(f'Marco ModBus device {_devName} with ip = {ip}, port = {port}, i_dev={i_dev}, guiIND={guiIND}, C_port = {connection}  succesfully added')
+                        
+                    else:
+                        print_err(f'Marco ModBus device {_devName} at {connection} can not be detected')
+                else:
+                    print_err(f'Wrong configuration format to connect ModBus server / Marco dispenser = {connection}')
+        
+        except Exception as ex:
+            print_log(f"Fail to add ModBus device. Exception: {ex}")
+            exptTrace(ex)
+
+
+    def __addDBDev(self, _sysDevs:systemDevices):
+
+        print_log('Adding DB')
+        try:
+            _db = assign_parm('DB', self.__params_table, 'DB_NAME', 'production.db')
+            _tbl = assign_parm('DB', self.__params_table, 'TBL_NAME', 'statistic')
+            dev_DB = StatisticSQLite('DB', _db, _tbl)
+            i_dev = CDev(DevType.DB, C_port=None, c_id=None, c_serialN=None, dev_DB, c_gui=None)
+            
+            if not dev_DB.StartDB():
+                raise Exception(f'Error initiation DB operation')
+            
+            _sysDevs['DB'] = i_dev
+            # devs.append(i_dev)
+            print_log(f'Added DB = {_db}, Table - {_tbl}')
+
+        except Exception as ex:
+            print_log(f"Fail to adding DB. Exception: {ex}")
+            exptTrace(ex)
+
+
 class baseDev(ABC):
     def __init__(self):
         pass
