@@ -14,10 +14,33 @@ import sys, time
 from collections import namedtuple
 from typing import List
 
-from bs1_utils import exptTrace
+from bs1_utils import print_log, print_inf, print_err, print_DEBUG, exptTrace, s16, s32, real_num_validator, \
+    int_num_validator, real_validator, int_validator, globalEventQ, smartLocker, clearQ, globalEventQ, event2GUI
+
 import pyads
 from _ctypes import Structure
 
+class commADS:
+    def __init__(self, ads_net_id:str, remote_ip_address:str, ads_net_port:int=pyads.PORT_TC3PLC1):
+        self.__ads_net_id = ads_net_id
+        self.__remote_ip_address = remote_ip_address
+        self.__ads_net_port = ads_net_port
+        self.__plc = None
+        self.__plc_name = None
+        self.__plc_version = None
+        try:
+            self.__plc = pyads.Connection(ads_net_id=self.__ads_net_id, \
+                                         ads_net_port=self.__ads_net_port, ip_address = self.__remote_ip_address)
+            self.__plc.open()
+            self.__plc_name, self.__plc_version = self.__plc.read_device_info()
+            print_log(f'ADS INFO: Connected to PLC NAME = {str(self.__plc_name)} VER= {str(self.__plc_version)}, State={self.__plc.read_state()}')
+
+        except Exception as ex: 
+            exptTrace(ex)
+            raise ex
+        
+
+    
 
 
 if __name__ == '__main__':

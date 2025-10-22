@@ -70,7 +70,7 @@ CDev - data class
 
 C_type = device type: DevType.TROLLEY / DevType.GRIPPER / DevType.GRIPPERv3/ DevType.ZABER/ DevType.DIST_ROTATOR / DevType.TIME_ROTATOR (SPINNER) / DevType.CAM / DevType.DAQ-NI / DevType.HMP / DevType.PHG / DevType.DH / DevType.INTERLOCK / DevType.IOCONTROL
 C_port = COM port (COM1/COM2/.../COMn) /  Port number for FHv3 / IP for cam / None for DAQ NI-6002 / USB port for MAXON / COMn for HMP
-c_id = vendor ID for COM port devices (ZABER_ID, HMD = 1027 / FAULHABER_ID = 2134) / device info for FHv3 / none for CAM  / model for DAQ / dev info for MAXON/ None for DH
+c_id = vendor ID for COM port devices (ZABER_ID, HMP = 1027 / FAULHABER_ID = 2134) / device info for FHv3 / none for CAM  / model for DAQ / dev info for MAXON/ None for DH
 c_serialN = device serial number (when available)
 c_gui = GUI_ID ( number of the device in the GUI sequensce: 1,2,3,...) (when available)
 
@@ -178,20 +178,23 @@ class systemDevices:
             with open(self.__params_file) as p_file:
                 doc = yaml.safe_load(p_file)
                 if doc is not None:
-                    if 'AMS_NETID' in doc.values():
+                    if 'ADS_NETID' in doc.values():
                         self.__platform_devs = plcPlatformDevs(self.__conf_file, self.__params_file)
                     else:
                         self.__platform_devs = pcPlatformDevs(self.__conf_file, self.__params_file) 
-
-
-                    
+        
+            self.port_scan()
 
         except Exception as ex:
             print_err(f'Error reading parameters file, exception = {ex}')
             exptTrace(ex)
-            pass        
-
-        self.port_scan()
+        
+        try:
+            self.port_scan()
+        except Exception as ex:
+            print_err(f'Error scanning ports and loading devices, exception = {ex}')
+            exptTrace(ex)        
+        
 
     def __getitem__(self, _devName:str) -> CDev:
         return self.self.__devs[_devName]
@@ -200,7 +203,7 @@ class systemDevices:
         if isinstance(_dev, CDev):
             self.__devs[_devName] = _dev
         else:
-            raise Exception(f'Wrong device type {_dev} ({type(_dev)}), expected CDev type')
+            raise Exception(f'Wrong device [{_dev}] type ({type(_dev)}), expected CDev type')
         
     
     # for backward compatability    
@@ -220,7 +223,7 @@ class abstractPlatformDevs(ABC):
 
         ###  allDevs dict: 
         # for PLC platform: 
-        #       {'AMS_NETID': '123.456.78.90.1.1'}
+        #       {'ADS_NETID': '123.456.78.90.1.1'}
         # for PC platform:
         #       {'TR': {"T1": 12345, "T2": 23456}, 'GR': {"G1": 34567}, 'ZB': {"Z1": 45678, "Z2": 56789}, 'RT': {"R1": 67890}, \
         #       'SP': {"S1": 78901}, 'CAM': {"CAM1": "124.45.67.89:123"}, 'NI': {"DAQ1": 4098}, 'HMP': {"H1": "12345"}, 'PHG': {"RELAY_NAME_1": "123456/7, TOGGLE|TRIGGER|ONOFF, TRUE|FALSE"}, 'DH': {"D1": 12345}, 'MCDMC': {"MCDMC1": "12345"}, 'MARCO': {"DISP1": "123.45.67.89:123"}, 'INTERLOCK': {"LCK1": "DAQ1"}, 'IOCONTROL': {"IO_NAME_1": "provider, port.line, NO/NC"}}
@@ -244,6 +247,30 @@ class abstractPlatformDevs(ABC):
 class plcPlatformDevs(abstractPlatformDevs):
     def __init__(self, _config_file:str = None, _params_file:str = None):
         super().__init__()
+        self.ADS_NETID = None
+        self.REMOTE_IP = None
+        self.__config_file = _config_file
+        try:
+            with open(self.__config_file) as p_file:
+                doc = yaml.safe_load(p_file)
+                _keys = doc.keys()
+                if 'ADS_NETID' in  _keys and 'REMOTE_IP' in _keys:
+                    self.ADS_NETID = doc['ADS_NETID']
+                    self.REMOTE_IP = doc['REMOTE_IP']
+                else:
+                    raise Exception(f'Error: ADS_NETID or REMOTE_IP are not defined in the configuration file {_config_file}')
+                
+                _ams_re = r'\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(?:\.1\.1)\b'
+                _remip_re  = r'\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b'
+                _ams_re_compiled = re.compile(_ams_re)
+                _remip_re_compiled = re.compile(_remip_re)
+                if not _ams_re_compiled.match(self.ADS_NETID) or not _remip_re_compiled.match(self.REMOTE_IP):
+                    raise Exception(f'Error: Wrong ADS_NETID ({self.ADS_NETID}) or REMOTE_IP ({self.REMOTE_IP}) format in the configuration file {_config_file}')
+
+        except Exception as ex:
+            print_err(f'Error reading configuration file, exception = {ex}')
+            exptTrace(ex)
+            raise ex
     
     def loadConf(self, _sysDevs:systemDevices):
         pass
@@ -338,7 +365,7 @@ MCDMC1:
     RELIEF_POSITION: 0, 0, 0, 0         # q1,q2,q3,q4 for MoveJoints(q1,q2,q3,q4)
     MID_JOINTS_POSITION: -67.69506, -55.04702, -65.00323, -1548.44055     
                                         # MoveJoints(q1,q2,q3,q4)
-                                        # −140° ≤ q1 ≤ 140°, −145° ≤ q2 ≤ 145°, −102 mm ≤ q3 ≤ 0 mm, −3,600° ≤ q4 ≤ 3,600°.
+                                        # -140° ≤ q1 ≤ 140°, -145° ≤ q2 ≤ 145°, -102 mm ≤ q3 ≤ 0 mm, -3,600° ≤ q4 ≤ 3,600°.
 
     REPEATS: 3
     PUT_ANGLE: 180                      
@@ -398,7 +425,7 @@ OMNIPULSE:
 
 '''
 Config file: 
-AMS_NETID: 123.456.78.90
+ADS_NETID: 123.456.78.90
 OR if it's not defined (empty) in the system enviroment variables, it will be read from the config file
 Config file (serials.yml) format w/examples:
 # Grippers
@@ -474,7 +501,6 @@ class pcPlatformDevs(abstractPlatformDevs):
         self.__addCamDevs(_sysDevs)
         self.__addMecademicDevs(_sysDevs)
         self.__addMarcoDevs(_sysDevs)
-        self.__addDHDevs(_sysDevs)  
         
 
 
@@ -560,7 +586,12 @@ class pcPlatformDevs(abstractPlatformDevs):
         return params_table
 
 
-
+    '''
+    Serial devices:
+    VID = 2134 (FAULHABER) 
+    VID = 1027 (ZABER, HMP, DH)
+    JTSE
+    '''
     def __addSerialDevs(self, _sysDevs:systemDevices):
         try:
 
@@ -1273,7 +1304,7 @@ class pcPlatformDevs(abstractPlatformDevs):
             _db = assign_parm('DB', self.__params_table, 'DB_NAME', 'production.db')
             _tbl = assign_parm('DB', self.__params_table, 'TBL_NAME', 'statistic')
             dev_DB = StatisticSQLite('DB', _db, _tbl)
-            i_dev = CDev(DevType.DB, C_port=None, c_id=None, c_serialN=None, dev_DB, c_gui=None)
+            i_dev = CDev(DevType.DB, C_port=None, c_id=None, c_serialN=None, dev = dev_DB, c_gui=None)
             
             if not dev_DB.StartDB():
                 raise Exception(f'Error initiation DB operation')
