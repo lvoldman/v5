@@ -15,7 +15,7 @@ import PySimpleGUI as sg
 from bs1_utils import print_log, print_inf, print_err, print_DEBUG, exptTrace, s16, s32, real_num_validator, \
     int_num_validator, real_validator, int_validator, globalEventQ, smartLocker, clearQ, globalEventQ, event2GUI
 
-from bs1_config import CDev
+from bs2_config import CDev, systemDevices
 
 from enum import Enum
 from queue import Queue 
@@ -33,7 +33,7 @@ import soundfile as sf
 import os.path
 from pathlib import Path
 
-from typing import List
+# from typing import List
 
 import bs1_mecademic as mc
 
@@ -51,10 +51,12 @@ OpType = Enum("OpType", ["go_to_dest", "go_fwrd_on", "go_bcwrd_off", "home", "vi
                         "pick_n_put", "insert_pcb", "put_pcb", \
                         # "moveabs", "movesafe", "moverel", "moveup",  "pickup",\
                         "start_robot_op", "vacuum", \
-                        "set_program", "single_shot", "play_media", "add_db", "nop"])
+                        "set_program", "single_shot", "play_media", "add_db", "nop", \
+                        "unparsed_cmd"   ])
 
 argsTypeFields = ["position", "end_position", "velocity", "time", "profile", "calibr_selector", "abs", "trigger_selector", "robot_op", "robot_parm" ,\
-                  "start_stop", "curr", "volt", "light_on", "x_coord", "y_coord", "p3D", "z_coord", "gamma_coord", "media_file", "polarity", "cmd_num", "stall"]
+                  "start_stop", "curr", "volt", "light_on", "x_coord", "y_coord", "p3D", "z_coord", "gamma_coord", "media_file", "polarity", \
+                 "cmd_num", "stall", "cmd_txt" ]
 argsType = namedtuple("argsType",  argsTypeFields, defaults=[None,] * len(argsTypeFields))
 
 
@@ -174,8 +176,8 @@ class WorkingTask:                                  # WorkingTask - self-recursi
     def is_single(self):
         return (self.__task_type == RunType.single) or (self.__sub_tasks == None)
     
-    def exploreDevs(self)-> List[CDev]:
-        dList:List[CDev] = list()
+    def exploreDevs(self)-> list[CDev]:
+        dList:list[CDev] = list()
         dev:TaskObj = None
         if self.__task_type == RunType.single:
             dList.append(self.__sub_tasks[0].device)
@@ -291,11 +293,14 @@ class WorkingTask:                                  # WorkingTask - self-recursi
         elif self.__task_type == RunType.single:
             print_log(f'WorkigTasks - single [device cmd] at {self.__sub_tasks[0].device} ')
             self.status = True
-            if self.__sub_tasks[0].device:                          # device cmd 
+            if self.__sub_tasks[0].device:                              # if valid device (not None)
+                                                                        # device cmd 
                 devPtr = self.__sub_tasks[0].device.get_device()       #__sub_task of CmdObj type
                 clearQ(devPtr.devNotificationQ)
                 
-            opResult, toBlock = self.__runCmd(window=window) 
+            # opResult, toBlock = self.__runCmd(window=window)        # run command for device 
+            opResult, toBlock = self.__runDevCmd(window=window)        # run command for device 
+                                                                    #  (the command will be parsed by device)
             print_log(f'WorkigTasks done! with (block = {toBlock},result ={opResult}) [device cmd] at {self.__sub_tasks[0].device} ')
             
             if not opResult  :                           # operation succeded & toBlock = True (need wait for result)
@@ -348,7 +353,6 @@ class WorkingTask:                                  # WorkingTask - self-recursi
 
         toBlock:bool = True 
         opResult:bool = True
-
 
         match wCmd.cmd:
             case OpType.go_to_dest:
@@ -684,6 +688,36 @@ class WorkingTask:                                  # WorkingTask - self-recursi
         return opResult, toBlock
 
 
+    # similar to __runCmd but passes entire command to device with no prior parsing by calling
+    # operateDevice method of CDev class
+    def __runDevCmd(self, window:sg.Window = None): 
+        wCmd:CmdObj = self.__sub_tasks[0]
+        print_log(f'Proceeding cmd = {wCmd}')
+
+        toBlock:bool = True 
+        opResult:bool = True
+
+        if wCmd.cmd == OpType.halt:
+            toBlock = False
+            if window:
+                window.write_event_value(f'Stop', None)                           # Emergency stop event
+                opResult = True
+            else:
+                print_err(f'ERROR- HALT cmd event could not be sent sent to main WINDOW [at script].')
+                opResult = False
+
+        else:               #   device operations 
+            if wCmd.device:                          
+                opResult, toBlock = wCmd.device.operateDevice(wCmd)
+            else:
+                devPtr = None
+                print_err(f'ERROR- No device defined fot smd = {wCmd}')
+                return False, False    
+
+            opResult = devPtr.operateDevice(wCmd, window)
+
+
+        return opResult, toBlock
 
 # @dataclass
 # class task_ref:
@@ -705,7 +739,7 @@ task_ref.__annotations__={'task':WorkingTask,  'thread_id':Thread}         # spe
 class ProcManager:
     def __init__(self, window:sg.Window):
         self.__window:sg.Window = window                              # ref to returnt completion event   
-        self.__tasks_list: List[task_ref] = list()                 # list of tasks (task_ref) refernces 
+        self.__tasks_list: list[task_ref] = list()                 # list of tasks (task_ref) refernces 
         self.__mLock:Lock = Lock()                                 # mutex for task list access control
 
           
@@ -764,7 +798,10 @@ class ProcManager:
 
 
     def load_task(self, task_to_run:WorkingTask, reportQ:Queue):                   # non blocking
-        for tsk in self.__tasks_list:
+                                        # task_to_run - WorkingTask object
+                                        # reportQ - Queue to send back the task completion event
+    
+        for tsk in self.__tasks_list:   # verify if single task is already running
             if (not tsk.task.is_single()) and (not task_to_run.is_single()):
                 print_err(f'ERROR - the oly one script is allowed in time')
                 print_err(f'1 ({task_to_run.id()}) -> {task_to_run}')
@@ -782,7 +819,8 @@ class ProcManager:
 
 
 # resolution device object by name
-def resolve_device(dName:str, devs_list:List[CDev]) -> CDev:
+# OBSOLETE:
+def resolve_device(dName:str, devs_list:list[CDev]) -> CDev:
     _devs = list()
     for dev in devs_list:
         _devName = dev.get_device().devName
@@ -796,17 +834,19 @@ def resolve_device(dName:str, devs_list:List[CDev]) -> CDev:
     print_err(f'Devices in the system: {_devs}<<')    
     return None
 
-def _is_DEV_present( _devName:str, devs_list:List[CDev]) -> bool:
+def _is_DEV_present( _devName:str, devs_list:list[CDev]) -> bool:
     for dev in reversed(devs_list):
         if dev.C_type == _devName:
             return True
     return False
 
-
-def resolve_SYS_device( opName:str, devs_list:List[CDev]) -> CDev:
+# OBSOLETE
+def resolve_SYS_device( opName:str, devs_list:list[CDev]) -> CDev:
 
     sub_dev = None
+    dName = None
     match opName:
+        # OBSOLETE:
         # case  'HOTAIR' | 'TRIGGER':
         #     dName = '--DAQ-NI--'
 
@@ -852,13 +892,21 @@ def resolve_SYS_device( opName:str, devs_list:List[CDev]) -> CDev:
         #     dName = '--PHG--'
         #     sub_dev = 'HOLELIGHT'
         
-        case 'HALT'  | 'DELAY':
+        case 'HALT'  | 'DELAY' | 'PLAY':
             return None
         case _:
             print_err(f'-ERROR- Cant recognize the device by operation - {opName}')
             return None
 
+    '''
+    OBSOLETE:
+    Resolving device by operation name
+    1. find device type by operation name   
+    2. find device instance by device type
+    3. if sub_dev is set - find device instance by sub_dev name
+    4. return device instance or None if not found
 
+    '''
     for dev in reversed(devs_list):
         if dev.C_type == dName:            # e.g. '--DAQ-NI--', '--CAM--'
             if sub_dev:
@@ -871,16 +919,18 @@ def resolve_SYS_device( opName:str, devs_list:List[CDev]) -> CDev:
     return None
 
 # def BuildComplexWorkingClass(script:dict, devs_list:List[CDev], stepTask:bool = False, tempTaskList: List[WorkingTask] = list())-> WorkingTask:
-def BuildComplexWorkingClass(script:dict, devs_list:List[CDev], key , stepTask:bool = False)-> WorkingTask:
+# def BuildComplexWorkingClass(script:dict, devs_list:list[CDev], key , stepTask:bool = False)-> WorkingTask:
+def BuildComplexWorkingClass(script:dict, _sysDevs:systemDevices, key , stepTask:bool = False)-> WorkingTask:
   
-    tempTaskList: List[WorkingTask] = list()
+    tempTaskList: list[WorkingTask] = list()
 
     print_DEBUG(f'Working on script = {script} key = {key}')
     for group_n, cmd in script.items():
         print_DEBUG(f'Procceeding cmd = {cmd} group_n = {group_n}')
 
         if isinstance(cmd, dict):
-            woT:WorkingTask = BuildComplexWorkingClass(cmd, devs_list, group_n, stepTask)
+            # woT:WorkingTask = BuildComplexWorkingClass(cmd, devs_list, group_n, stepTask)
+            woT:WorkingTask = BuildComplexWorkingClass(cmd, _sysDevs, group_n, stepTask)
             if woT == None:
                 return None
             else:
@@ -898,9 +948,10 @@ def BuildComplexWorkingClass(script:dict, devs_list:List[CDev], key , stepTask:b
 
 
             print_DEBUG(f'Creating single task for cmd = {_cmd}')
-            wTask:WorkingTask = Create_Single_Task(_cmd, devs_list) 
+            # wTask:WorkingTask = Create_Single_Task(_cmd, devs_list) 
+            wTask:WorkingTask = Create_Dev_Single_Task(_cmd, _sysDevs)
             print_DEBUG(f'Single_Task = {wTask}')
-            if wTask:     
+            if wTask is not None:     
                 tempTaskList.append(wTask)
             else:    
                 print_err(f'Dev {_cmd[1]} at script cmd {_cmd} is not active in the system')                               # device for cmd is not active in the system 
@@ -919,9 +970,12 @@ def BuildComplexWorkingClass(script:dict, devs_list:List[CDev], key , stepTask:b
             
     return wT          
 
-def BuildWorkingTask(script:List[str], devs_list:List[CDev],  sType:RunType = RunType.parallel, stepTask:bool = False) -> WorkingTask:
+
+'''
+# BuildWorkingTask is OBSOLETE:
+def BuildWorkingTask(script:list[str], devs_list:list[CDev],  sType:RunType = RunType.parallel, stepTask:bool = False) -> WorkingTask:
     
-    tempTaskList: List[WorkingTask] = list()
+    tempTaskList: list[WorkingTask] = list()
 
 # Only Paralel mode is currently supported for scrips!!!!!!!!
     for cmd in script:      
@@ -930,7 +984,7 @@ def BuildWorkingTask(script:List[str], devs_list:List[CDev],  sType:RunType = Ru
             tempTaskList.append(wTask)
         else:    
             print_err(f'Dev {cmd[1]} at script cmd {cmd[0]} is not active in the system')                               # device for cmd is not active in the system 
-            return None
+            return None 
     
     if sType == RunType.parallel:
         wTask = WorkingTask(tempTaskList, sType=sType, stepTask=stepTask)
@@ -939,13 +993,15 @@ def BuildWorkingTask(script:List[str], devs_list:List[CDev],  sType:RunType = Ru
         wTask = None
 
     return wTask
+'''
 
-def validateScript(scriptStep:List[str])-> bool:
+def validateScript(scriptStep:list[str])-> bool:
     print_log(f'-WARNING  validation rules  for script are not set so far')
     return True
 
 # creating  WorkingTask for single (device direct) cmd (script cmd)
-def Create_Single_Task(cmd:str, devs_list:List[CDev]) -> WorkingTask:
+# OBSOLETE:use Create_Dev_Single_Task instead
+def Create_Single_Task(cmd:str, devs_list:list[CDev]) -> WorkingTask:
 
     dev_type:str = cmd[1] if ((cmd[1] == 'SYS') or (cmd[1] == 'CMNT') or (cmd[1] == 'NOP') or (cmd[1] == 'MCDMC') or (cmd[1] == 'PHG') \
                 or (cmd[1][:4] == 'PHG_') or (cmd[1][:-1] == 'DISP') or (cmd[1][:-1] == 'CAM') or (cmd[1] == 'DB')) else cmd[1][0]
@@ -1382,11 +1438,35 @@ def Create_Single_Task(cmd:str, devs_list:List[CDev]) -> WorkingTask:
                 print_err(f'Unrecognized script cmd = {cmd}')
                 return None
     
-    return WorkingTask(taskList = wCmd, sType=RunType.single)    
+    return WorkingTask(taskList = wCmd, sType=RunType.single)   
+
+# creating  WorkingTask for single device with multiple cmds (script cmd)
+# similar to Create_Single_Task but does not parsse the command (cmd will be parsed inside the device class)
+def Create_Dev_Single_Task(cmd:str, _sysDevs: systemDevices) -> WorkingTask: 
+
+    print_log(f'Creating "Device Single Task" from cmd = {cmd}, device = {cmd[1]} ')
+
+    device:CDev = _sysDevs[cmd[1]]
+
+    if device == None:
+        print_err(f"No active device {cmd[1]} found for cmd: {cmd}")
+        # return WorkingTask()                                # return empty task
+        return None                                # return None
+        
+    print_log(f'Resolved device = {device}')
+
+    wCmd = None
+
+
+    wCmd = CmdObj(device=device, cmd=OpType.unparsed_cmd, args=argsType(cmd_txt=cmd[2:]))
+        
+    return WorkingTask(taskList = wCmd, sType=RunType.single)
+
+
 
 class WorkingTasksList:
     def __init__(self):
-        self.tList:List[WorkingTask] = list()
+        self.tList:list[WorkingTask] = list()
 
     def __del__(self):
         if len(self.tList):
@@ -1408,7 +1488,7 @@ class WorkingTasksList:
                 return t
         return None
     
-    def getAllTasks(self) -> List[WorkingTask]:
+    def getAllTasks(self) -> list[WorkingTask]:
         return self.tList
 
 

@@ -34,9 +34,33 @@ from errorH import ErrTxt
 import threading
 
 
-class BaseMotor(ABC):
+class baseDev(ABC):
+    def __init__(self, devName:str, parms:dict):
+        self._parms:dict = parms
+        self._devName:str = devName
+        self._dev_lock:Lock = Lock()
+        self._wd:threading.Thread = None
+        self._title:str = None
+        self.devNotificationQ:Queue = Queue()
+
+    def __del__(self):
+        pass
+
+    @abstractmethod
+    def devQuery(self, query:str, timeout:float=0)-> str:
+        pass
+    
+    @abstractmethod
+    def operateDevice(self, command:str)-> tuple(bool, bool):
+        pass
+    
+
+
+class BaseMotor(baseDev):
     def __init__(self, port:str, devName:str, parms:dict):
+        super().__init__(devName=devName, parms=parms)
         self._mDev_port:str = port
+
         self._mDev_type:str = None                           # devise type (DevType.ROTATOR / DevType.GRIPPERv3 / DevType.DIST_ROTATOR / DevType.TIME_ROTATOR (SPINNER))/ DevType.DHGRIPPER
         self._mDev_pos:int = 0                               #  current position 
         self._el_current_limit:int = 0                       # electrical current limit to stop 
@@ -52,12 +76,7 @@ class BaseMotor(ABC):
         self._start_time: float = 0                                   # Start thread time
         self._success_flag:bool = True                            # end of op flag
         self._rotationTime:float = 0                               # rotation time
-        self._devName:str = devName
-        self._wd:threading.Thread = None
-        self._parms:dict = parms
-        self._title:str = None
-        self._dev_lock:Lock = Lock()
-        
+                
 
     def __del__(self):
         pass

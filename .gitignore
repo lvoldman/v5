@@ -1,0 +1,14 @@
+LOG*.txt
+*.zip
+*.db
+*.bak
+*.step
+*.bkp
+*.mp*
+Lib/
+Images/
+DLL/
+__pycache__/
+.git/
+.vscode/
+*-*-*/

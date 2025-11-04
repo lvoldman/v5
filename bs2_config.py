@@ -14,6 +14,10 @@ from queue import Queue
 from typing import List
 from abc import ABC, abstractmethod
 from collections import namedtuple
+from dataclasses import dataclass
+from bs1_ads import commADS
+
+from bs1_base_motor import baseDev
 
 from zaber_motion.ascii import Connection, Device
 import zaber_motion, yaml, sys, bs1_faulhaber
@@ -38,6 +42,8 @@ from bs1_io_control import IOcontrol
 from bs1_festo_modbus import Festo_Motor
 from bs1_sqlite import StatisticSQLite 
 from bs1_jtse_serial import  JTSEcontrol
+from bs1_plc_dev import PLCDev
+
 from enum import Enum
 
 
@@ -49,8 +55,20 @@ import datetime, re
 from bs1_utils import print_log, print_inf, print_err, print_DEBUG, exptTrace, s16, s32, void_f 
 print_DEBUG = void_f
 
+DEV_API_SIZE = 4000  # bytes
+DEV_NAME_SIZE = 80  # chars
+DEV_INFO_SIZE = 1024  # bytes
 
-DevType = Enum("DevType", ["TIME_ROTATOR", "DIST_ROTATOR", "TROLLEY", "GRIPPER", "GRIPPERv3", "ZABER", "DAQ_NI", "HMP", "PHG", "CAM", "DH", "MCDMC", "MARCO", "INTERLOCK", "IOCONTROL", "JTSE", "DB"])
+# class plcDataPTR(Enum):
+#     API = "API"
+#     DeviceName = "DeviceName"
+#     DeviceInfo = "DeviceInfo"
+#     State = "State"
+
+plcDataPTR = Enum('plcDataPTR', [('API', "API"), ('DeviceName', "DeviceName"), \
+                           ('DeviceInfo', "DeviceInfo"), ('State', "State")])
+
+DevType = Enum("DevType", ["TIME_ROTATOR", "DIST_ROTATOR", "TROLLEY", "GRIPPER", "GRIPPERv3", "ZABER", "DAQ_NI", "HMP", "PHG", "CAM", "DH", "MCDMC", "MARCO", "INTERLOCK", "IOCONTROL", "JTSE", "DB", "PLCDEV"])
 
 
 ZABER_ID = 1027
@@ -164,12 +182,21 @@ class CDev:
         if _dev is not None:
             del _dev
 
+    def operateDevice(self, cmd:str) -> tuple(bool, bool):
+
+        if self.__device is not None:
+            return self.__device.operateDevice(cmd)
+        else:
+            print_err(f'ERROR operating cmd = {cmd}, unkmown device - {self}')
+            return False, False
+
 
 
 
 class systemDevices:
-    def __init__(self, _conf_file:str=None, _params_file:str=None):
-        self.__devs:dict = dict()    # {dev_name1: CDev1, dev_name2: CDev2, ...}
+    def __init__(self, _conf_file:str='serials.yml', _params_file:str='params.yml'):
+
+        self.__devs:dict = dict()    # {dev_name1: CDev1, dev_name2: CDev2, ...} 
         self.__conf_file = _conf_file
         self.__params_file = _params_file   
         self.__platform_devs:abstractPlatformDevs = None
@@ -195,9 +222,9 @@ class systemDevices:
             print_err(f'Error scanning ports and loading devices, exception = {ex}')
             exptTrace(ex)        
         
-
+    # bracket notation for getting/setting devices by name (example: sysDevs['T1'] / sysDevs['G1'] = CDev(...) )
     def __getitem__(self, _devName:str) -> CDev:
-        return self.self.__devs[_devName]
+        return None if _devName not in self.self.__devs.keys() else self.self.__devs[_devName] 
     
     def __setitem__(self, _devName:str, _dev:CDev):
         if isinstance(_dev, CDev):
@@ -235,7 +262,7 @@ class abstractPlatformDevs(ABC):
         pass
     
     def __getitem__(self, _devType):
-        return self.allDevs[_devType]
+        return None if _devType not in self.allDevs.keys() else self.allDevs[_devType]
     
     def __setitem__(self, _devType, _devList):
         raise Exception(f'Unsupported bracket notation ([]) operation')
@@ -245,10 +272,20 @@ class abstractPlatformDevs(ABC):
     
 
 class plcPlatformDevs(abstractPlatformDevs):
+    @dataclass
+    class symbolsADS:           # ADS symbols used in PLC configuration w/default values
+        _max_num_of_devs:str = 'G_Constant.MaxNumOfDrivers'
+        _dev_array_str:str = 'G_System.fbExternalAPI.arDeviceInfo'
+
+        
+
     def __init__(self, _config_file:str = None, _params_file:str = None):
         super().__init__()
         self.ADS_NETID = None
         self.REMOTE_IP = None
+        self.SYMBOLS = plcPlatformDevs.symbolsADS()
+        self._ads:commADS = None
+
         self.__config_file = _config_file
         try:
             with open(self.__config_file) as p_file:
@@ -257,6 +294,8 @@ class plcPlatformDevs(abstractPlatformDevs):
                 if 'ADS_NETID' in  _keys and 'REMOTE_IP' in _keys:
                     self.ADS_NETID = doc['ADS_NETID']
                     self.REMOTE_IP = doc['REMOTE_IP']
+                    self.SYMBOLS._max_num_of_devs = doc['MAX_NUM_OF_DEVS'] if 'MAX_NUM_OF_DEVS' in _keys else self.SYMBOLS._max_num_of_devs
+                    self.SYMBOLS._dev_array_str = doc['DEV_ARRAY_STR'] if 'DEV_ARRAY_STR' in _keys else self.SYMBOLS._dev_array_str
                 else:
                     raise Exception(f'Error: ADS_NETID or REMOTE_IP are not defined in the configuration file {_config_file}')
                 
@@ -266,6 +305,9 @@ class plcPlatformDevs(abstractPlatformDevs):
                 _remip_re_compiled = re.compile(_remip_re)
                 if not _ams_re_compiled.match(self.ADS_NETID) or not _remip_re_compiled.match(self.REMOTE_IP):
                     raise Exception(f'Error: Wrong ADS_NETID ({self.ADS_NETID}) or REMOTE_IP ({self.REMOTE_IP}) format in the configuration file {_config_file}')
+                
+                self._ads = commADS(self.REMOTE_IP, self.ADS_NETID)
+
 
         except Exception as ex:
             print_err(f'Error reading configuration file, exception = {ex}')
@@ -273,8 +315,28 @@ class plcPlatformDevs(abstractPlatformDevs):
             raise ex
     
     def loadConf(self, _sysDevs:systemDevices):
-        pass
+        try: 
+            _max_devs = self._ads.readVar(self.SYMBOLS._max_num_of_devs)
+            _dev_idx = 0
 
+            for _dev_idx in range(_max_devs):
+                _dev_info_symb = f'{self.SYMBOLS._dev_array_str}[{_dev_idx + 1}]'
+                _dev_name = self._ads.readVar(f'_dev_info_symb.{plcDataPTR.DeviceName.value}', size=DEV_NAME_SIZE)
+                if _dev_name is  None:
+                    break
+                _dev_api = self._ads.readVar(f'_dev_info_symb.{plcDataPTR.API.value}', size=DEV_API_SIZE)
+                _dev_info = self._ads.readVar(f'_dev_info_symb.{plcDataPTR.DeviceInfo.value}', size=DEV_INFO_SIZE)
+                _plcDev = PLCDev(dev_name=_dev_name, devAPI=_dev_api, devINFO=_dev_info)
+                _cdev = CDev(C_type=DevType.PLCDEV, C_port=None, c_id=None, \
+                                                            c_serialN=None, c_dev=_plcDev, c_gui=_dev_idx+1)
+
+
+                print_log(f'Added PLC device: {_cdev}')
+            if _dev_idx == 0:
+                print_err(f'No devices found in PLC configuration')
+        except Exception as ex:
+            print_err(f'Error loading PLC configuration, exception = {ex}')
+            exptTrace(ex)
 
 '''
 params file (params.yml) format w/examples:
@@ -1316,14 +1378,6 @@ class pcPlatformDevs(abstractPlatformDevs):
         except Exception as ex:
             print_log(f"Fail to adding DB. Exception: {ex}")
             exptTrace(ex)
-
-
-class baseDev(ABC):
-    def __init__(self):
-        pass
-    def __del__(self):
-        pass
-
 
 
 

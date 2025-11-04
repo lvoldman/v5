@@ -10,15 +10,16 @@ __status__ = "Tool"
 
 import ctypes
 import sys, time
+from enum import Enum
 
 from collections import namedtuple
-from typing import List
 
 from bs1_utils import print_log, print_inf, print_err, print_DEBUG, exptTrace, s16, s32, real_num_validator, \
     int_num_validator, real_validator, int_validator, globalEventQ, smartLocker, clearQ, globalEventQ, event2GUI
 
 import pyads
 from _ctypes import Structure
+
 
 class commADS:
     def __init__(self, ads_net_id:str, remote_ip_address:str, ads_net_port:int=pyads.PORT_TC3PLC1):
@@ -31,6 +32,9 @@ class commADS:
         try:
             self.__plc = pyads.Connection(ads_net_id=self.__ads_net_id, \
                                          ads_net_port=self.__ads_net_port, ip_address = self.__remote_ip_address)
+            if self.__plc is None:
+                raise Exception(f'ADS ERROR: Cannot create PLC connection object')
+            
             self.__plc.open()
             self.__plc_name, self.__plc_version = self.__plc.read_device_info()
             print_log(f'ADS INFO: Connected to PLC NAME = {str(self.__plc_name)} VER= {str(self.__plc_version)}, State={self.__plc.read_state()}')
@@ -40,8 +44,31 @@ class commADS:
             raise ex
         
 
-    
+    def __del__(self):
+        try:
+            if self.__plc is not None:
+                self.__plc.close()
+                print_log(f'ADS INFO: Disconnected from PLC NAME = {str(self.__plc_name)} VER= {str(self.__plc_version)}')
+        except Exception as ex:
+            exptTrace(ex)
 
+    def readVar(self, symbol_name:str, size:int = None) -> str | int | None:
+        try:
+            if self.__plc is None:
+                raise Exception(f'ADS ERROR: PLC connection is not established')
+            if size is None:
+                return self.__plc.read_by_name(symbol_name)
+            
+            _data = self.__plc.read_by_name(symbol_name, pyads.PLCTYPE_BYTE * size)
+            _cut_data = _data[:_data.index(0)]               # cut zero bytes
+            return "".join(map(chr, _cut_data)) 
+
+        
+        except Exception as ex:
+            exptTrace(ex)
+            raise ex    
+
+### UNITEST SECTION #####
 
 if __name__ == '__main__':
 # refer to https://pyads.readthedocs.io/en/latest/documentation
@@ -101,9 +128,10 @@ if __name__ == '__main__':
     # AMS_NETID = '192.168.230.2.1.1'
     sender_ams = '192.168.10.153.1.1'
     sender_ip = '192.168.10.153'
-    remote_ip = '192.168.10.136'
+    remote_ip = '192.168.10.92'
     remote_ads = '192.168.10.136.1.1'
-    AMS_NETID = '192.168.10.136.1.1'
+    # AMS_NETID = '192.168.1.10.1.1'
+    AMS_NETID = '192.168.10.92.1.1'
 
     try:
         #  For Linux
@@ -127,6 +155,8 @@ if __name__ == '__main__':
 
         plc = pyads.Connection(ams_net_id=AMS_NETID, ams_net_port=pyads.PORT_TC3PLC1, ip_address = remote_ip)
         # plc = pyads.Connection(ams_net_id=AMS_NETID, ams_net_port=851, ip_address = remote_ip)
+        if plc is None:
+                raise Exception(f'ADS ERROR: Cannot create PLC connection object for ADS = {AMS_NETID} at {remote_ip}')
         plc.open()
         device_name, version = plc.read_device_info()
         print(f'INFO: NAME = {str(device_name)} VER= {str(version)}')
@@ -141,7 +171,9 @@ if __name__ == '__main__':
     _val = None
     # _name = SYMBOL_GLOBAL_NAME+'.'+SYMBOL_NAME_INT
     # _name = SYMBOL_GLOBAL_NAME+'.ari'
-    _name = SYMBOL_GLOBAL_NAME+'.arst'
+    # _name = SYMBOL_GLOBAL_NAME+'.arst'
+    _name = 'G_System.fbExternalAPI.arDeviceInfo[1].DeviceName' 
+
     _str_def = (
         (SYMBOL_NAME_BOOL, pyads.PLCTYPE_BOOL, 1),
         (SYMBOL_NAME_INT, pyads.PLCTYPE_INT, 1),
@@ -173,6 +205,32 @@ if __name__ == '__main__':
     #     ]
 
     # _str_alloc = [_struct_def] * 10
+    _num_of_devs = plc.read_by_name('G_Constant.MaxNumOfDrivers')
+    print(f'Number of devices = {_num_of_devs}')
+    # loop to read value
+    # _sym_test = 'G_System.fbExternalAPI.sTest'
+    # _test_val = plc.read_by_name( _sym_test,  pyads.PLCTYPE_BYTE * 4000 )
+    # print(f'Test value({_sym_test}, size = {len(_test_val)} bytes)= { _test_val} ')
+    # # print(f'Test value({_sym_test}, size = {len(_test_val)} bytes)= {"".join(map(chr, _test_val))} ')
+    # sys.exit()
+
+    for i, _ in enumerate(range(_num_of_devs)):
+        _symb_dev_name = f'G_System.fbExternalAPI.arDeviceInfo[{i+1}].DeviceName'
+        _dev_name = plc.read_by_name(_symb_dev_name)
+        if _dev_name.strip() == '':
+            break
+        _sym_dev = f'G_System.fbExternalAPI.arDeviceInfo[{i+1}].API'
+        # _dev_API = plc.read_by_name( {f'G_System.fbExternalAPI.arDeviceInfo[{i+1}].API'})
+        _dev_API = plc.read_by_name( _sym_dev,  pyads.PLCTYPE_BYTE * 4000 )
+        print(f'Device[{i+1}] Name={_dev_name}')
+        # print(f'Device[{i+1}]({len(_dev_API)} bytes) API={"".join(map(chr, _dev_API)) }  ')
+        # print(f'Device[{i+1}]({len(_dev_API)}bytes) API={"".join(map(chr, _dev_API)) }  \n {_dev_API}')
+        cut_API = _dev_API[:_dev_API.index(0)]  # cut zero bytes
+        print(f'Device[{i+1}]({len(cut_API)}bytes) API={"".join(map(chr, cut_API)) }  ')
+
+
+    sys.exit()
+
     while True:
         try:
             _new_state = plc.read_state()

@@ -775,6 +775,8 @@ def GetSubScriptDict(window, event, values, ind = 0)->dict:
                 subscript[new_script[rw][1]] = ''.join(str(x)+' ' for x in new_script[rw][2:])
 
         group_n = 'L' + new_script[rowsLst[0]][0]
+        # have no idea whay I added 'L' prefix here, but it was like that before refactoring and is OBSOLETE now
+        # removing it may break somthing, so let it be for now
     
     subscript = dict([(group_n, subscript)])
 

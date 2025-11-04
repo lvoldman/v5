@@ -25,7 +25,7 @@ import bs1_status_monitor as sm
 import bs1_mecademic as mc
 
 
-from bs2_config import port_scan, CDev, gif103, read_params, get_dev, getDevsList, load_dev_config, DevType
+from bs2_config import port_scan, CDev, gif103, read_params, get_dev, getDevsList, load_dev_config, DevType, systemDevices
 
 
 # from bs1_config import port_scan, CDev, gif103, read_params, get_dev, getDevsList, load_dev_config
@@ -374,7 +374,7 @@ def deactivateGUI(window):
 
 #     ActivateMotorControl(window, fDevType.MARCO)    
 
-def initGUIDevs(window, devs_list:List):
+def initGUIDevs(window, devs_list:list[CDev]):
     global activeGUIflag
     activeGUIflag = True
 
@@ -839,7 +839,7 @@ def preTaskProceedure(window:sg.Window, wTask:pm.WorkingTask):
 
 # 
 ScrRunLock = Lock()
-def ScriptRunner(window:sg.Window, devs_list:List[CDev], selected_group:List[str], scriptQ:Queue, retEvent:str, eventQ:Queue, cyclic:int = 1):
+def ScriptRunner(window:sg.Window, devs_list:list[CDev], selected_group:list[str], scriptQ:Queue, retEvent:str, eventQ:Queue, cyclic:int = 1):
 
     if ScrRunLock.locked():
         print_err(f'-WARNING another script is still in progress. Trying to kill it')
@@ -1761,8 +1761,11 @@ def _stopProc(scriptQ:Queue, eventQ:Queue, gui_task_list:list):
 def workingCycle (window, parms:dict):
 
     # global emergency_stop_pressed
+
+    _sysDev = systemDevices()
                                             # init devices and pereferials 
-    devs_list = port_scan()
+    # devs_list = port_scan()
+    devs_list = _sysDev.port_scan()
     parms_table:dict = parms
     initGUIDevs(window, devs_list)
 
@@ -1886,7 +1889,8 @@ def workingCycle (window, parms:dict):
                         # wTask = pm.BuildWorkingTask(scriptStep, devs_list, pm.RunType.parallel , steptask) 
                         key = list(scriptStep.keys())[0]
                         script = scriptStep[key]
-                        wTask = pm.BuildComplexWorkingClass(script, devs_list, key, steptask) 
+                        # wTask = pm.BuildComplexWorkingClass(script, devs_list, key, steptask) 
+                        wTask = pm.BuildComplexWorkingClass(script, _sysDev, key, steptask) 
                         print_DEBUG(f'wTask = {wTask}')
                         if wTask == None:
                             if not _DEBUG:
@@ -2145,7 +2149,8 @@ def workingCycle (window, parms:dict):
                 # wTask = pm.BuildWorkingTask(scriptStep, devs_list, pm.RunType.parallel , steptask) 
                 key = list(scriptStep.keys())[0]
                 script = scriptStep[key]
-                wTask = pm.BuildComplexWorkingClass(script, devs_list, key, steptask) 
+                # wTask = pm.BuildComplexWorkingClass(script, devs_list, key, steptask) 
+                wTask = pm.BuildComplexWorkingClass(script, _sysDev, key, steptask) 
                 # wTask = pm.BuildComplexWorkingClass(scriptStep, devs_list, steptask)
                 print_DEBUG(f'wTask = {wTask}')
                 if wTask == None :
@@ -3260,12 +3265,12 @@ def workingCycle (window, parms:dict):
 
 def runTask(wTask:pm.WorkingTask, gui_task_list:pm.WorkingTasksList, process_manager:pm.ProcManager, eventQ:Queue):
     if wTask:
-        # devList:List[CDev] = wTask.exploreDevs()
         
         print_log(f'New task will be proceeded: {wTask}')
-        preTaskProceedure(window, wTask)
-        gui_task_list.addTask(wTask=wTask)
-        process_manager.load_task(wTask, eventQ)                # staring task at proccess manager
+        preTaskProceedure(window, wTask)   # disabling controls if needed
+        gui_task_list.addTask(wTask=wTask)  # adding task to GUI task list in order to track it and re-enable controls when done
+        process_manager.load_task(wTask, eventQ)               
+                     # staring task at proccess manager, eventQ - queue for reporting back to GUI
     else:
         print_err(f'-ERROR -  Task = {wTask}')
 
