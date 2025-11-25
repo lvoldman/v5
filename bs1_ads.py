@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 __author__ = "Leonid Voldman"
 __copyright__ = "Copyright 2024"
 __credits__ = ["VoldmanTech"]
@@ -11,6 +13,7 @@ __status__ = "Tool"
 import ctypes
 import sys, time
 from enum import Enum
+import json
 
 from collections import namedtuple
 
@@ -21,17 +24,25 @@ import pyads
 from _ctypes import Structure
 
 
+PLC_TYPE_MAP = {
+    bool: pyads.PLCTYPE_BOOL,
+    int: pyads.PLCTYPE_INT,
+    float: pyads.PLCTYPE_REAL,
+    str: pyads.PLCTYPE_STRING
+
+}
+
 class commADS:
-    def __init__(self, ads_net_id:str, remote_ip_address:str, ads_net_port:int=pyads.PORT_TC3PLC1):
-        self.__ads_net_id = ads_net_id
+    def __init__(self, ams_net_id:str, remote_ip_address:str, ams_net_port:int=pyads.PORT_TC3PLC1):
+        self.__ams_net_id = ams_net_id
         self.__remote_ip_address = remote_ip_address
-        self.__ads_net_port = ads_net_port
+        self.__ams_net_port = ams_net_port
         self.__plc = None
         self.__plc_name = None
         self.__plc_version = None
         try:
-            self.__plc = pyads.Connection(ads_net_id=self.__ads_net_id, \
-                                         ads_net_port=self.__ads_net_port, ip_address = self.__remote_ip_address)
+            self.__plc = pyads.Connection(ams_net_id=self.__ams_net_id, \
+                                         ams_net_port=self.__ams_net_port, ip_address = self.__remote_ip_address)
             if self.__plc is None:
                 raise Exception(f'ADS ERROR: Cannot create PLC connection object')
             
@@ -52,21 +63,60 @@ class commADS:
         except Exception as ex:
             exptTrace(ex)
 
-    def readVar(self, symbol_name:str, size:int = None) -> str | int | None:
+    # def readVar(self, symbol_name:str, variable:object = None, size:int = None) -> str | int | bool | float | list | tuple | None:
+    def readVar(self, symbol_name:str, var_type:type = None, size:int = None) -> str | int | bool | float | list | tuple | None:
+        ret_val = None
         try:
             if self.__plc is None:
                 raise Exception(f'ADS ERROR: PLC connection is not established')
-            if size is None:
-                return self.__plc.read_by_name(symbol_name)
             
-            _data = self.__plc.read_by_name(symbol_name, pyads.PLCTYPE_BYTE * size)
-            _cut_data = _data[:_data.index(0)]               # cut zero bytes
-            return "".join(map(chr, _cut_data)) 
+            if size is None:
+                # if variable is None:
+                if var_type is None:
+                    ret_val = self.__plc.read_by_name(symbol_name, pyads.PLCTYPE_INT)
+                else:
+                    # ret_val = self.__plc.read_by_name(symbol_name, plc_datatype=PLC_TYPE_MAP[type(variable)])
+                    ret_val = self.__plc.read_by_name(symbol_name, plc_datatype=PLC_TYPE_MAP[var_type])
+            elif size <= 1024:
+                ret_val = self.__plc.read_by_name(symbol_name, pyads.PLCTYPE_STRING)
+            else:
+                _data = self.__plc.read_by_name(symbol_name, pyads.PLCTYPE_BYTE * size)
+                _cut_data = _data[:_data.index(0)]               # cut zero bytes
+                ret_val =   "".join(map(chr, _cut_data)) 
 
+            return ret_val
         
         except Exception as ex:
             exptTrace(ex)
             raise ex    
+
+    def writeVar(self, symbol_name:str, dataToSend:object = None) -> bool:
+        try:
+            var_type = type(dataToSend)
+            if var_type == str:
+                size = len(dataToSend)
+            else:
+                size = None 
+
+            if self.__plc is None:
+                raise Exception(f'ADS ERROR: PLC connection is not established')
+            
+            if size is None:
+                if var_type is None:
+                    raise Exception(f'ADS ERROR: Cannot write variable without type info')
+                else:
+                    self.__plc.write_by_name(symbol_name, dataToSend, plc_datatype=PLC_TYPE_MAP[var_type])
+            elif size <= 1024:
+                self.__plc.write_by_name(symbol_name, dataToSend, pyads.PLCTYPE_STRING)
+            else:
+                raise Exception(f'ADS ERROR: Writing large data blocks is not supported yet')
+
+            return True
+        
+        except Exception as ex:
+            exptTrace(ex)
+            raise ex
+
 
 ### UNITEST SECTION #####
 
@@ -134,6 +184,73 @@ if __name__ == '__main__':
     AMS_NETID = '192.168.10.92.1.1'
 
     try:
+        _adsCom = commADS(ams_net_id=AMS_NETID, remote_ip_address=remote_ip)
+        _num_of_devs:int = _adsCom.readVar('G_Constant.MaxNumOfDrivers')
+        print(f'Number of devices = {_num_of_devs}')
+        # for i, _ in enumerate(range(_num_of_devs)):
+        #     _symb_dev_name = f'G_System.fbExternalAPI.arDeviceInfo[{i+1}].DeviceName'
+        #     _dev_name:str = str()
+        #     # _dev_name = _adsCom.readVar(_symb_dev_name, variable=_dev_name)
+        #     _dev_name = _adsCom.readVar(_symb_dev_name, var_type=str)
+        #     if _dev_name.strip() == '':
+        #         break
+        #     _sym_dev = f'G_System.fbExternalAPI.arDeviceInfo[{i+1}].API'
+
+        #     a:type = str
+        #     _dev_API:str = str()
+        #     # _dev_API = _adsCom.readVar( _sym_dev, variable=_dev_API, size=4000 )
+        #     _dev_API = _adsCom.readVar( _sym_dev, var_type=str, size=4000 )
+
+
+        #     _sym_info = f'G_System.fbExternalAPI.arDeviceInfo[{i+1}].DeviceInfo'
+        #     _dev_INFO:str = str()
+        #     # _dev_INFO = _adsCom.readVar( _sym_info, variable=_dev_INFO, size=1024 )
+        #     _dev_INFO = _adsCom.readVar( _sym_info, var_type=str, size=1024 )
+
+        #     _sym_state = f'G_System.fbExternalAPI.arDeviceInfo[{i+1}].State'
+        #     _dev_STATE:int=0
+        #     # _dev_STATE = _adsCom.readVar( _sym_state, variable=_dev_STATE )
+        #     _dev_STATE = _adsCom.readVar( _sym_state, var_type=int )    
+
+        #     print(f'\n>>>>>>Device[{i+1}] Name={_dev_name}<<<<<<<')
+        #     print(f'Device[{i+1}]({len(_dev_API)}bytes) API={_dev_API}  ')
+        #     print(f'Device[{i+1}] INFO={_dev_INFO}  ')
+        #     print(f'Device[{i+1}] STATE={_dev_STATE}  ')
+
+
+        sym_exData = 'G_System.fbExternalAPI.ExecutionInfo'
+        send_exData:dict = \
+        {
+            "ExecutionID": 4,
+            "Devices": [
+                        {
+                            "InstanceName": "Stages_AxisX",
+                            "TaskName": "Move Absolute",
+                            "TaskParams": "{\"Pos\":0}",
+                            "IsBreak": False
+                        },
+                        {
+                            "InstanceName": "FrontStage_AxisY",
+                            "TaskName": "Move Absolute",
+                            "TaskParams": "{\"Pos\":0}",
+                            "IsBreak": False
+                        }
+                ]
+        }
+        print(f'Writing ExecutionInfo = {send_exData}')
+        _adsCom.writeVar(symbol_name=sym_exData, dataToSend = json.dumps(send_exData))
+
+        sym_load = 'G_System.fbExternalAPI.DoLoadInfo'
+        _adsCom.writeVar(symbol_name=sym_load, dataToSend = True)
+
+        _adsCom.writeVar(symbol_name='G_System.fbExternalAPI.RunExecutionID', dataToSend = send_exData["ExecutionID"] )
+
+        _adsCom.writeVar(symbol_name='G_System.fbExternalAPI.DoRun', dataToSend = True )
+
+
+        sys.exit()
+
+
         #  For Linux
         # # add a new route to the target plc
         # pyads.open_port()
