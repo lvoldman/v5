@@ -1011,9 +1011,9 @@ if __name__ == "__main__":
 
         window = sg.Window('Unitest', layout, finalize = True)
 
-        from bs2_config import port_scan
+        from bs2_config import systemDevices
         print(f'Scanning ports')
-        devs = port_scan()
+        devs = systemDevices().port_scan()
 
 
 

@@ -17,7 +17,7 @@ from collections import namedtuple
 from dataclasses import dataclass
 from bs1_ads import commADS
 
-from bs1_base_motor import baseDev
+from bs1_base_motor import BaseDev
 
 from zaber_motion.ascii import Connection, Device
 import zaber_motion, yaml, sys, bs1_faulhaber
@@ -112,7 +112,7 @@ class CDev:
         self.c_serialN = c_serialN
         self.c_gui = c_gui
 
-        self.__device:baseDev = c_dev
+        self.__device:BaseDev = c_dev
 
     '''
 #------- Bad practice --------
@@ -210,14 +210,14 @@ class systemDevices:
                     else:
                         self.__platform_devs = pcPlatformDevs(self.__conf_file, self.__params_file) 
         
-            self.port_scan()
 
         except Exception as ex:
             print_err(f'Error reading parameters file, exception = {ex}')
             exptTrace(ex)
         
         try:
-            self.port_scan()
+            # scan ports and add devices defined in the configuration file
+            self.__platform_devs.loadConf(self)
         except Exception as ex:
             print_err(f'Error scanning ports and loading devices, exception = {ex}')
             exptTrace(ex)        
@@ -235,9 +235,7 @@ class systemDevices:
     
     # for backward compatability    
     def port_scan(self) -> list:
-        # scan ports and add devices defined in the configuration file
-        self.__platform_devs.loadConf(self)
-        return self.__devs.values() 
+        return self.__devs.values()             # list of CDev objects
     
     # for backward compatability    
     def append(self, _devName:str, _dev:CDev):

@@ -14,10 +14,10 @@ import threading
 from bs1_utils import print_log, print_inf, print_err, print_DEBUG, exptTrace, s16, \
                                         s32, num2binstr, set_parm, get_parm, void_f
 
-from bs1_base_motor import BaseMotor
+from bs1_base_motor import BaseMotor, BaseDev
 
 
-class PLCDev(BaseMotor):
+class PLCDev(BaseDev):
     def __init__(self, dev_name:str, devAPI:dict, devINFO:dict):
         super().__init__(dev_name=dev_name)
         self.__devAPI: dict = devAPI

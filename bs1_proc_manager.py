@@ -338,6 +338,7 @@ class WorkingTask:                                  # WorkingTask - self-recursi
     # "phg_trigger", "phg_toggle", "phg_on", "phg_off", "phg_operate", "pick_n_put", "moveabs", "movesafe", "moverel", "moveup", "vacuum", 
     # "pickup", "insert_pcb", "put_pcb", set_program", "single_shot", "add_db","play_media"]
     # runType = single, task type of CmdObj
+    # sg.Window is for events communication (i.e. 'Stop' event)
     def __runCmd(self, window:sg.Window = None):             
 
         wCmd:CmdObj = self.__sub_tasks[0]
@@ -1456,7 +1457,6 @@ def Create_Dev_Single_Task(cmd:str, _sysDevs: systemDevices) -> WorkingTask:
     print_log(f'Resolved device = {device}')
 
     wCmd = None
-
 
     wCmd = CmdObj(device=device, cmd=OpType.unparsed_cmd, args=argsType(cmd_txt=cmd[2:]))
         

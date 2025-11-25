@@ -25,7 +25,7 @@ import bs1_status_monitor as sm
 import bs1_mecademic as mc
 
 
-from bs2_config import port_scan, CDev, gif103, read_params, get_dev, getDevsList, load_dev_config, DevType, systemDevices
+from bs2_config import  CDev, gif103, read_params, get_dev, getDevsList, load_dev_config, DevType, systemDevices
 
 
 # from bs1_config import port_scan, CDev, gif103, read_params, get_dev, getDevsList, load_dev_config

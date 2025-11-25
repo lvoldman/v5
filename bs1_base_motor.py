@@ -34,13 +34,12 @@ from errorH import ErrTxt
 import threading
 
 
-class baseDev(ABC):
+class BaseDev(ABC):
     def __init__(self, devName:str, parms:dict):
         self._parms:dict = parms
         self._devName:str = devName
         self._dev_lock:Lock = Lock()
         self._wd:threading.Thread = None
-        self._title:str = None
         self.devNotificationQ:Queue = Queue()
 
     def __del__(self):
@@ -56,7 +55,7 @@ class baseDev(ABC):
     
 
 
-class BaseMotor(baseDev):
+class BaseMotor(BaseDev):
     def __init__(self, port:str, devName:str, parms:dict):
         super().__init__(devName=devName, parms=parms)
         self._mDev_port:str = port
@@ -76,6 +75,8 @@ class BaseMotor(baseDev):
         self._start_time: float = 0                                   # Start thread time
         self._success_flag:bool = True                            # end of op flag
         self._rotationTime:float = 0                               # rotation time
+        self._title:str = None
+
                 
 
     def __del__(self):

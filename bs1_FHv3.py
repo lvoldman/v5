@@ -1122,10 +1122,13 @@ if __name__ == "__main__":
 
         window = sg.Window('Unitest', layout, finalize = True)
 
-        from bs1_config import port_scan
+        from bs2_config import systemDevices
 
+        _sysDev = systemDevices()
+                                            # init devices and pereferials 
         print_inf(f'Scanning ports')
-        devs = port_scan()
+        # devs = port_scan()
+        devs = _sysDev.port_scan()
 
 
 

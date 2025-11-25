@@ -221,12 +221,23 @@ if __name__ == '__main__':
             break
         _sym_dev = f'G_System.fbExternalAPI.arDeviceInfo[{i+1}].API'
         # _dev_API = plc.read_by_name( {f'G_System.fbExternalAPI.arDeviceInfo[{i+1}].API'})
+
         _dev_API = plc.read_by_name( _sym_dev,  pyads.PLCTYPE_BYTE * 4000 )
-        print(f'Device[{i+1}] Name={_dev_name}')
+        cut_API = _dev_API[:_dev_API.index(0)]  # cut zero bytes
+
+
+        _dev_info = f'G_System.fbExternalAPI.arDeviceInfo[{i+1}].DeviceInfo'
+        _dev_INFO = plc.read_by_name( _dev_info,  pyads.PLCTYPE_STRING * 1024 )
+
+        _sym_state = f'G_System.fbExternalAPI.arDeviceInfo[{i+1}].State'
+        _dev_STATE = plc.read_by_name( _sym_state,  pyads.PLCTYPE_INT )
+
         # print(f'Device[{i+1}]({len(_dev_API)} bytes) API={"".join(map(chr, _dev_API)) }  ')
         # print(f'Device[{i+1}]({len(_dev_API)}bytes) API={"".join(map(chr, _dev_API)) }  \n {_dev_API}')
-        cut_API = _dev_API[:_dev_API.index(0)]  # cut zero bytes
+        print(f'\n>>>>>>Device[{i+1}] Name={_dev_name}<<<<<<<')
         print(f'Device[{i+1}]({len(cut_API)}bytes) API={"".join(map(chr, cut_API)) }  ')
+        print(f'Device[{i+1}] INFO={_dev_INFO}  ')
+        print(f'Device[{i+1}] STATE={_dev_STATE}  ')
 
 
     sys.exit()
