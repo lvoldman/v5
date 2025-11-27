@@ -114,53 +114,6 @@ class CDev:
 
         self.__device:BaseDev = c_dev
 
-    '''
-#------- Bad practice --------
-        self.dev_mDC = None
-        self.dev_zaber = None        
-        self.dev_ni = None
-        self.dev_cam = None
-        self.dev_hmp = None
-        self.dev_phg  = None
-        self.dev_mcdmc = None
-        self.dev_marco = None
-        self.dev_interlock = None
-        self.dev_iocontrol = None
-        self.dev_DB = None
-        self.dev_jtse = None
-
-    def get_device(self):
-        if self.dev_mDC:
-            return self.dev_mDC
-        elif self.dev_zaber:
-            return self.dev_zaber
-        elif self.dev_ni:
-            return self.dev_ni
-        elif self.dev_cam:
-            return self.dev_cam
-        elif self.dev_hmp:
-            return self.dev_hmp
-        elif self.dev_phg:
-            return self.dev_phg
-        elif self.dev_mcdmc:
-            return self.dev_mcdmc
-        elif self.dev_marco:
-            return self.dev_marco
-        elif self.dev_interlock:
-            return self.dev_interlock
-        elif self.dev_iocontrol:
-            return self.dev_iocontrol
-        elif self.dev_DB:
-            return self.dev_DB
-        elif self.dev_jtse:
-            return self.dev_jtse
-
-        else:
-            print_err(f'ERROR, unkmown device - {self}')
-            return None
-#------- Bad practice --------
-    '''
-
     def get_device(self):                       # for backward compatability 
         return self.__device
 
@@ -182,7 +135,7 @@ class CDev:
         if _dev is not None:
             del _dev
 
-    def operateDevice(self, cmd:str) -> tuple(bool, bool):
+    def operateDevice(self, cmd:str) -> tuple[bool, bool] :
 
         if self.__device is not None:
             return self.__device.operateDevice(cmd)
@@ -196,13 +149,13 @@ class CDev:
 class systemDevices:
     def __init__(self, _conf_file:str='serials.yml', _params_file:str='params.yml'):
 
-        self.__devs:dict = dict()    # {dev_name1: CDev1, dev_name2: CDev2, ...} 
+        self.__devs:dict = dict()    #  Lists all available devs {dev_name1: CDev1, dev_name2: CDev2, ...} 
         self.__conf_file = _conf_file
         self.__params_file = _params_file   
         self.__platform_devs:abstractPlatformDevs = None
 
         try:
-            with open(self.__params_file) as p_file:
+            with open(self.__config_file) as p_file:
                 doc = yaml.safe_load(p_file)
                 if doc is not None:
                     if 'ADS_NETID' in doc.values():
@@ -274,6 +227,7 @@ class plcPlatformDevs(abstractPlatformDevs):
     class symbolsADS:           # ADS symbols used in PLC configuration w/default values
         _max_num_of_devs:str = 'G_Constant.MaxNumOfDrivers'
         _dev_array_str:str = 'G_System.fbExternalAPI.arDeviceInfo'
+        _num_of_devices:str = 'G_System.fbExternalAPI.stDriverPool.NumberOfDriversInPool'
 
         
 
@@ -283,6 +237,8 @@ class plcPlatformDevs(abstractPlatformDevs):
         self.REMOTE_IP = None
         self.SYMBOLS = plcPlatformDevs.symbolsADS()
         self._ads:commADS = None
+        self._plcDevs:dict = dict()   # {dev_name1: PLCDev1, dev_name2: PLCDev2, ...}
+        self.number_of_devs:int = 0
 
         self.__config_file = _config_file
         try:
@@ -305,6 +261,7 @@ class plcPlatformDevs(abstractPlatformDevs):
                     raise Exception(f'Error: Wrong ADS_NETID ({self.ADS_NETID}) or REMOTE_IP ({self.REMOTE_IP}) format in the configuration file {_config_file}')
                 
                 self._ads = commADS(self.REMOTE_IP, self.ADS_NETID)
+                
 
 
         except Exception as ex:
@@ -315,16 +272,20 @@ class plcPlatformDevs(abstractPlatformDevs):
     def loadConf(self, _sysDevs:systemDevices):
         try: 
             _max_devs = self._ads.readVar(self.SYMBOLS._max_num_of_devs)
+            _num_of_devs = self._ads.readVar(self.SYMBOLS._num_of_devices)
+            print_log(f'PLC configuration: max number of devices = {_max_devs}, number of configured devices = {_num_of_devs}') 
+
             _dev_idx = 0
 
-            for _dev_idx in range(_max_devs):
+            for _dev_idx in range(_num_of_devs):
                 _dev_info_symb = f'{self.SYMBOLS._dev_array_str}[{_dev_idx + 1}]'
-                _dev_name = self._ads.readVar(f'_dev_info_symb.{plcDataPTR.DeviceName.value}', size=DEV_NAME_SIZE)
+                _dev_name = self._ads.readVar(f'{_dev_info_symb}.{plcDataPTR.DeviceName.value}', str, size=DEV_NAME_SIZE)
                 if _dev_name is  None:
+                    print_err(f'Unexpexted end of devices list. Error reading device name for device index {_dev_idx}')
                     break
-                _dev_api = self._ads.readVar(f'_dev_info_symb.{plcDataPTR.API.value}', size=DEV_API_SIZE)
-                _dev_info = self._ads.readVar(f'_dev_info_symb.{plcDataPTR.DeviceInfo.value}', size=DEV_INFO_SIZE)
-                _plcDev = PLCDev(dev_name=_dev_name, devAPI=_dev_api, devINFO=_dev_info)
+                _dev_api = self._ads.readVar(f'{_dev_info_symb}.{plcDataPTR.API.value}', str, size=DEV_API_SIZE)
+                _dev_info = self._ads.readVar(f'{_dev_info_symb}.{plcDataPTR.DeviceInfo.value}', str, size=DEV_INFO_SIZE)
+                _plcDev = PLCDev(dev_name=_dev_name, devAPI=_dev_api, devINFO=_dev_info, _comADS=self._ads)
                 _cdev = CDev(C_type=DevType.PLCDEV, C_port=None, c_id=None, \
                                                             c_serialN=None, c_dev=_plcDev, c_gui=_dev_idx+1)
 

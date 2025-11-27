@@ -66,6 +66,9 @@ class CmdObj:
     device:CDev = None          # device to perate
     cmd:OpType = None           # command to run
     args:argsType = None        # parameters for cms (position, time, etc)      
+    @property
+    def operation(self):        # cmd text fore unparsed_cmd
+        return self.args.cmd_txt
 
 # StatusType = Enum("StatusType", ["disabled", "in_motion", "available"])
 # @dataclass
@@ -675,6 +678,8 @@ class WorkingTask:                                  # WorkingTask - self-recursi
                 opResult = devPtr.recordDB(_onoff) 
                 print_log(f'recordin into DB status = {_onoff}, result = {opResult}')
 
+            case OpType.unparsed_cmd:
+                toBlock, opResult = devPtr.operateDevice(wCmd.operation)
 
             case OpType.nop:
                 toBlock = False

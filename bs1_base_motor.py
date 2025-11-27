@@ -49,8 +49,12 @@ class BaseDev(ABC):
     def devQuery(self, query:str, timeout:float=0)-> str:
         pass
     
+    # operateDevice command: str -> (blocked:bool, result:bool)
+    # blocked - True if the device is in async mode and notification should be awaited
+    # result - True if the command run was successful (in case of synchronous mode) or operation started successfully (in case of async mode)
+    
     @abstractmethod
-    def operateDevice(self, command:str)-> tuple(bool, bool):
+    def operateDevice(self, command:str)-> tuple[bool, bool]:
         pass
     
 

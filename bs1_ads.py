@@ -64,7 +64,7 @@ class commADS:
             exptTrace(ex)
 
     # def readVar(self, symbol_name:str, variable:object = None, size:int = None) -> str | int | bool | float | list | tuple | None:
-    def readVar(self, symbol_name:str, var_type:type = None, size:int = None) -> str | int | bool | float | list | tuple | None:
+    def readVar(self, symbol_name:str, var_type:type = None, size:int = None) -> str | int | bool | float | list | dict| None:
         ret_val = None
         try:
             if self.__plc is None:
@@ -121,6 +121,11 @@ class commADS:
 ### UNITEST SECTION #####
 
 if __name__ == '__main__':
+
+    import threading
+
+
+
 # refer to https://pyads.readthedocs.io/en/latest/documentation
 
 
@@ -183,6 +188,35 @@ if __name__ == '__main__':
     # AMS_NETID = '192.168.1.10.1.1'
     AMS_NETID = '192.168.10.92.1.1'
 
+    class STATUS(Enum):
+        READY = 0
+        BUSY = 1
+        DONE = 800
+        ERROR = 900
+
+    
+
+    def _watch_dog_thread(_adsCom:commADS, execution_id:int, _index:int):
+        print_log(f'Watch dog thread is alive...')
+        if _adsCom is None:
+            raise Exception(f'ADS ERROR: PLC connection is not established in watch dog thread')
+        while True:
+            try:
+                sym_exStatus = f'G_System.fbExternalAPI.ExecutionStatus[{_index}].eExecutionStatus'
+                exStatus:int = _adsCom.readVar(symbol_name=sym_exStatus, var_type=int)
+                print(f'ExecutionStatus = {STATUS(exStatus)} ({exStatus}) for ExecutionID={execution_id} ')
+                if exStatus == STATUS.DONE.value:   # Completed
+                    print_log(f'ExecutionID={execution_id} completed successfully')
+                    break
+                time.sleep(0.5)
+                
+            except Exception as ex:
+                exptTrace(ex)
+                break
+
+
+
+
     try:
         _adsCom = commADS(ams_net_id=AMS_NETID, remote_ip_address=remote_ip)
         _num_of_devs:int = _adsCom.readVar('G_Constant.MaxNumOfDrivers')
@@ -243,9 +277,18 @@ if __name__ == '__main__':
         sym_load = 'G_System.fbExternalAPI.DoLoadInfo'
         _adsCom.writeVar(symbol_name=sym_load, dataToSend = True)
 
+        _index:int = _adsCom.readVar('G_System.fbExternalAPI.LastExecutorLoaded', var_type=int)
+        print(f'Loaded ExecutionInfo on index = {_index}')
+
         _adsCom.writeVar(symbol_name='G_System.fbExternalAPI.RunExecutionID', dataToSend = send_exData["ExecutionID"] )
 
         _adsCom.writeVar(symbol_name='G_System.fbExternalAPI.DoRun', dataToSend = True )
+
+        wd = threading.Thread(target = _watch_dog_thread, args=(_adsCom, send_exData["ExecutionID"], _index  ))
+        wd.start()
+        wd.join()
+        print (f'Watch dog thread for devices {send_exData["Devices"]} on ExecutionID = {send_exData["ExecutionID"]}  ended')
+
 
 
         sys.exit()
