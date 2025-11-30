@@ -285,7 +285,7 @@ class plcPlatformDevs(abstractPlatformDevs):
                     break
                 _dev_api = self._ads.readVar(f'{_dev_info_symb}.{plcDataPTR.API.value}', str, size=DEV_API_SIZE)
                 _dev_info = self._ads.readVar(f'{_dev_info_symb}.{plcDataPTR.DeviceInfo.value}', str, size=DEV_INFO_SIZE)
-                _plcDev = PLCDev(dev_name=_dev_name, devAPI=_dev_api, devINFO=_dev_info, _comADS=self._ads)
+                _plcDev = PLCDev(dev_name=_dev_name, _dev_idx=_dev_idx, devAPI=_dev_api, devINFO=_dev_info, _comADS=self._ads)
                 _cdev = CDev(C_type=DevType.PLCDEV, C_port=None, c_id=None, \
                                                             c_serialN=None, c_dev=_plcDev, c_gui=_dev_idx+1)
 

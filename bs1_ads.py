@@ -32,6 +32,22 @@ PLC_TYPE_MAP = {
 
 }
 
+class EN_DeviceCoreState(Enum):
+    START = 0,
+    IDLE = 1,
+    INIT = 2,
+    READY = 3,
+    RUN = 4,
+    DONE = 5,
+    STOPPING = 6,
+    PAUSING = 7,
+    PAUSED = 8,
+    RESUMING = 9,
+    RESUME = 10,
+    ERROR = 11,
+    RESET = 12
+    
+
 class commADS:
     def __init__(self, ams_net_id:str, remote_ip_address:str, ams_net_port:int=pyads.PORT_TC3PLC1):
         self.__ams_net_id = ams_net_id
@@ -64,7 +80,7 @@ class commADS:
             exptTrace(ex)
 
     # def readVar(self, symbol_name:str, variable:object = None, size:int = None) -> str | int | bool | float | list | tuple | None:
-    def readVar(self, symbol_name:str, var_type:type = None, size:int = None) -> str | int | bool | float | list | dict| None:
+    def readVar(self, symbol_name:str, var_type:type = None, size:int = None) -> str | int | bool | float | list | dict | None:
         ret_val = None
         try:
             if self.__plc is None:
