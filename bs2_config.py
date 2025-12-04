@@ -42,7 +42,7 @@ from bs1_io_control import IOcontrol
 from bs1_festo_modbus import Festo_Motor
 from bs1_sqlite import StatisticSQLite 
 from bs1_jtse_serial import  JTSEcontrol
-from bs1_plc_dev import PLCDev
+from bs1_plc_dev import PLCDev, symbolsADS
 
 from enum import Enum
 
@@ -223,19 +223,12 @@ class abstractPlatformDevs(ABC):
     
 
 class plcPlatformDevs(abstractPlatformDevs):
-    @dataclass
-    class symbolsADS:           # ADS symbols used in PLC configuration w/default values
-        _max_num_of_devs:str = 'G_Constant.MaxNumOfDrivers'
-        _dev_array_str:str = 'G_System.fbExternalAPI.arDeviceInfo'
-        _num_of_devices:str = 'G_System.fbExternalAPI.stDriverPool.NumberOfDriversInPool'
-
-        
 
     def __init__(self, _config_file:str = None, _params_file:str = None):
         super().__init__()
         self.ADS_NETID = None
         self.REMOTE_IP = None
-        self.SYMBOLS = plcPlatformDevs.symbolsADS()
+        self.SYMBOLS = symbolsADS()
         self._ads:commADS = None
         self._plcDevs:dict = dict()   # {dev_name1: PLCDev1, dev_name2: PLCDev2, ...}
         self.number_of_devs:int = 0
@@ -249,6 +242,7 @@ class plcPlatformDevs(abstractPlatformDevs):
                     self.ADS_NETID = doc['ADS_NETID']
                     self.REMOTE_IP = doc['REMOTE_IP']
                     self.SYMBOLS._max_num_of_devs = doc['MAX_NUM_OF_DEVS'] if 'MAX_NUM_OF_DEVS' in _keys else self.SYMBOLS._max_num_of_devs
+                                                        # alternative symbol names
                     self.SYMBOLS._dev_array_str = doc['DEV_ARRAY_STR'] if 'DEV_ARRAY_STR' in _keys else self.SYMBOLS._dev_array_str
                 else:
                     raise Exception(f'Error: ADS_NETID or REMOTE_IP are not defined in the configuration file {_config_file}')

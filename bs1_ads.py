@@ -22,7 +22,13 @@ from bs1_utils import print_log, print_inf, print_err, print_DEBUG, exptTrace, s
 
 import pyads
 from _ctypes import Structure
+from dataclasses import dataclass
 
+class STATUS(Enum):
+    READY = 0
+    BUSY = 1
+    DONE = 800
+    ERROR = 900
 
 PLC_TYPE_MAP = {
     bool: pyads.PLCTYPE_BOOL,
@@ -31,6 +37,52 @@ PLC_TYPE_MAP = {
     str: pyads.PLCTYPE_STRING
 
 }
+
+@dataclass
+class symbolsADS:           # ADS symbols used in PLC configuration w/default values
+    _max_num_of_devs:str = 'G_Constant.MaxNumOfDrivers'
+    _dev_array_str:str = 'G_System.fbExternalAPI.arDeviceInfo'
+    _num_of_devices:str = 'G_System.fbExternalAPI.stDriverPool.NumberOfDriversInPool'
+    _max_number_of_runners:str = 'G_Constant.MaxNumOfExternalRunners'
+
+pick_method = Enum("pick_method", ["random", "up_end", "low_end"])
+
+class Pool:
+    def __init__(self, size:int=1024, method:pick_method = pick_method.low_end):
+        self._size: int = size                                          # maximum number of IDs in the pool
+        self._pool: set[int] = set(range(1, self._size + 1))            # available IDs in the pool
+        self._method: pick_method = method                             # method to pick IDs from the pool
+
+    # Allocate an ID from the pool
+    def alloc(self) -> int :
+        try:
+            ret_val = None
+            if len(self._pool) == 0:                                # no IDs available
+                raise MemoryError(f'ADS POOL ERROR: The pool is empty. Cannot allocate new ID')
+            if self._method == pick_method.random:              # pick a random ID
+                ret_val = self._pool.pop() 
+            elif self._method == pick_method.low_end:            # pick the lowest ID
+                ret_val = min(self._pool)
+                self._pool.remove(ret_val)
+            elif self._method == pick_method.up_end:            # pick the highest ID
+                ret_val = max(self._pool)
+                self._pool.remove(ret_val)
+            return ret_val
+        except Exception as ex:
+            exptTrace(ex)
+            raise ex
+
+
+    def release(self, id: int) -> None:
+        try:
+            if id < 1 or id > self._size:
+                raise ValueError(f'ADS POOL ERROR: ID {id} is out of range [1..{self._size}]')
+            if id in self._pool:
+                raise ValueError(f'ADS POOL ERROR: ID {id} is already released')
+            self._pool.add(id)
+        except Exception as ex:
+            exptTrace(ex)
+            raise ex
 
 class EN_DeviceCoreState(Enum):
     START = 0,
@@ -47,6 +99,9 @@ class EN_DeviceCoreState(Enum):
     ERROR = 11,
     RESET = 12
     
+class apiPLC:
+    def __init__(self, adsCom:commADS):
+        pass
 
 class commADS:
     def __init__(self, ams_net_id:str, remote_ip_address:str, ams_net_port:int=pyads.PORT_TC3PLC1):
@@ -134,7 +189,7 @@ class commADS:
             raise ex
 
 
-### UNITEST SECTION #####
+############################################ UNITEST SECTION #######################################
 
 if __name__ == '__main__':
 
@@ -204,11 +259,7 @@ if __name__ == '__main__':
     # AMS_NETID = '192.168.1.10.1.1'
     AMS_NETID = '192.168.10.92.1.1'
 
-    class STATUS(Enum):
-        READY = 0
-        BUSY = 1
-        DONE = 800
-        ERROR = 900
+
 
     
 

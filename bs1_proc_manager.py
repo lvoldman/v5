@@ -40,7 +40,7 @@ import bs1_mecademic as mc
 # from bs1_phidget import PhidgetRELAY
 
 
-RunType = Enum("RunType", ["parallel", "serial", "single"])
+RunType = Enum("RunType", ["parallel", "serial", "single", "simultaneous"])
 
 
 # CmdObj = namedtuple("CmdObj", ["device", "cmd"])
@@ -302,9 +302,10 @@ class WorkingTask:                                  # WorkingTask - self-recursi
                 clearQ(devPtr.devNotificationQ)
                 
             # opResult, toBlock = self.__runCmd(window=window)        # run command for device 
-            opResult, toBlock = self.__runDevCmd(window=window)        # run command for device 
-                                                                    #  (the command will be parsed by device)
-            print_log(f'WorkigTasks done! with (block = {toBlock},result ={opResult}) [device cmd] at {self.__sub_tasks[0].device} ')
+            opResult, toBlock = self.__runDevCmd(window=window)        # load and than Run  command for device                                                                     
+                                                                                #  (the command will be parsed by device)
+            
+            print_log(f'WorkigTasks initiation done! with (block = {toBlock},result ={opResult}) [device cmd] at {self.__sub_tasks[0].device} ')
             
             if not opResult  :                           # operation succeded & toBlock = True (need wait for result)
                 print_err(f'Device {self.__sub_tasks[0].device} returned ERROR on operation {self.__sub_tasks[0].cmd}')
@@ -320,6 +321,13 @@ class WorkingTask:                                  # WorkingTask - self-recursi
             if not opResult:                                    # operation failed. Emeregency stop must be performed 
                 print_err(f'Device {self.__sub_tasks[0].device} returned ERROR on THREAD operation {self.__sub_tasks[0].cmd}')
                 return  taskRes(result = False, device = self.__sub_tasks[0].device.get_device().devName)
+        elif self.__task_type == RunType.simultaneous: 
+                                                                # 1) load all commands to devices (PLCDev:loadDevicesOp)
+                                                                # 2) start runner (PLCDev:runDevicesOp) to proceed all devices assigned to the runner
+            print_log(f'WorkigTasks - simultaneous series')
+            # BUGBUG: implement simultaneous run type
+            print_err(f'ERROR - simultaneous run type is not implemented yet')
+            return  taskRes(result = False, device = 'System error')
         else:
             print_err(f'ERROR - undefined run type: {self.__task_type}')
             return taskRes(result = False, device = 'System error')
@@ -679,7 +687,10 @@ class WorkingTask:                                  # WorkingTask - self-recursi
                 print_log(f'recordin into DB status = {_onoff}, result = {opResult}')
 
             case OpType.unparsed_cmd:
-                toBlock, opResult = devPtr.operateDevice(wCmd.operation)
+                runner = devPtr.loadDeviceOp(wCmd.operation)
+                # devPtr.runDevicesOp(runner)
+                toBlock, opResult = devPtr.__class__.runDevicesOp(runner)          # run the loaded commands
+                print_log(f'Unparsed command loaded and run at device {devPtr.devName}, runner = {runner}')
 
             case OpType.nop:
                 toBlock = False
@@ -695,32 +706,37 @@ class WorkingTask:                                  # WorkingTask - self-recursi
 
 
     # similar to __runCmd but passes entire command to device with no prior parsing by calling
-    # operateDevice method of CDev class
-    def __runDevCmd(self, window:sg.Window = None): 
-        wCmd:CmdObj = self.__sub_tasks[0]
-        print_log(f'Proceeding cmd = {wCmd}')
+    # loadDeviceOp method of CDev class. Do not run cmd itself. Use PLCDev:runDevicesOp to run all loaded commands
+    def __runDevCmd(self, window:sg.Window = None)-> tuple[bool, bool]: 
+        try:
+            wCmd:CmdObj = self.__sub_tasks[0]
+            print_log(f'Proceeding cmd = {wCmd}')
 
-        toBlock:bool = True 
-        opResult:bool = True
+            toBlock:bool = True 
+            opResult:bool = True
 
-        if wCmd.cmd == OpType.halt:
-            toBlock = False
-            if window:
-                window.write_event_value(f'Stop', None)                           # Emergency stop event
-                opResult = True
-            else:
-                print_err(f'ERROR- HALT cmd event could not be sent sent to main WINDOW [at script].')
+            if wCmd.cmd == OpType.halt:
+                toBlock = False
                 opResult = False
+                if window:
+                    window.write_event_value(f'Stop', None)                           # Emergency stop event
+                    opResult = True
+                else:
+                    raise Exception (f'ERROR- HALT cmd event could not be sent  to main WINDOW [at script].')
 
-        else:               #   device operations 
-            if wCmd.device:                          
-                opResult, toBlock = wCmd.device.operateDevice(wCmd)
-            else:
-                devPtr = None
-                print_err(f'ERROR- No device defined fot smd = {wCmd}')
-                return False, False    
+            else:               #   device operations 
+                if wCmd.device:                          
+                    runner= wCmd.device.loadDeviceOp(wCmd)
+                    toBlock, opResult = wCmd.device.__class__.runDevicesOp(runner)          # run the loaded commands
 
-            opResult = devPtr.operateDevice(wCmd, window)
+                    print_log(f'Device command loaded and run at device {wCmd.device.get_device().devName}, runner = {runner}')
+                else:
+                    print_err(f'ERROR- No device defined fot smd = {wCmd}')
+                    return False, False
+        
+        except Exception as ex:
+            exptTrace(ex)
+            return False, False
 
 
         return opResult, toBlock
@@ -934,14 +950,15 @@ def BuildComplexWorkingClass(script:dict, _sysDevs:systemDevices, key , stepTask
     for group_n, cmd in script.items():
         print_DEBUG(f'Procceeding cmd = {cmd} group_n = {group_n}')
 
-        if isinstance(cmd, dict):
+        if isinstance(cmd, dict):     # complex command (sub-script) / cmd block, nested script
+            print_DEBUG(f'Creating complex task for cmd = {cmd}')
             # woT:WorkingTask = BuildComplexWorkingClass(cmd, devs_list, group_n, stepTask)
             woT:WorkingTask = BuildComplexWorkingClass(cmd, _sysDevs, group_n, stepTask)
             if woT == None:
                 return None
             else:
                 tempTaskList.append(woT)
-        else:
+        else:                        # single command    
             _cmd =list(" ")
             _cmd.append(group_n) 
             if isinstance(cmd, str):    
@@ -962,7 +979,7 @@ def BuildComplexWorkingClass(script:dict, _sysDevs:systemDevices, key , stepTask
             else:    
                 print_err(f'Dev {_cmd[1]} at script cmd {_cmd} is not active in the system')                               # device for cmd is not active in the system 
                 return None
-    
+    # BUGBUG: code for simultaneous runner add HERE
     if key[-1] == 'P':
         sType = RunType.parallel
     elif key[-1] == 'S':
