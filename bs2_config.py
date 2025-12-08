@@ -55,9 +55,9 @@ import datetime, re
 from bs1_utils import print_log, print_inf, print_err, print_DEBUG, exptTrace, s16, s32, void_f 
 print_DEBUG = void_f
 
-DEV_API_SIZE = 4000  # bytes
-DEV_NAME_SIZE = 80  # chars
-DEV_INFO_SIZE = 1024  # bytes
+# DEV_API_SIZE = 4000  # bytes
+# DEV_NAME_SIZE = 80  # chars
+# DEV_INFO_SIZE = 1024  # bytes
 
 # class plcDataPTR(Enum):
 #     API = "API"
@@ -265,21 +265,19 @@ class plcPlatformDevs(abstractPlatformDevs):
     
     def loadConf(self, _sysDevs:systemDevices):
         try: 
-            _max_devs = self._ads.readVar(self.SYMBOLS._max_num_of_devs)
-            _num_of_devs = self._ads.readVar(self.SYMBOLS._num_of_devices)
-            print_log(f'PLC configuration: max number of devices = {_max_devs}, number of configured devices = {_num_of_devs}') 
-
+            print_log(f'PLC based devices operation. Load configuration from PLC at {self.REMOTE_IP}, AMS NET ID = {self.ADS_NETID}')
+            
             _dev_idx = 0
 
-            for _dev_idx in range(_num_of_devs):
-                _dev_info_symb = f'{self.SYMBOLS._dev_array_str}[{_dev_idx + 1}]'
-                _dev_name = self._ads.readVar(f'{_dev_info_symb}.{plcDataPTR.DeviceName.value}', str, size=DEV_NAME_SIZE)
+            _devLst = PLCDev.enum_devs(_comADS=self._ads)
+            print_log(f'Found {_devLst} ({len(_devLst)}) devices in PLC configuration')
+
+            for _dev_idx, _dev_name in enumerate(_devLst):
+                _dev_name = _dev_name
                 if _dev_name is  None:
                     print_err(f'Unexpexted end of devices list. Error reading device name for device index {_dev_idx}')
                     break
-                _dev_api = self._ads.readVar(f'{_dev_info_symb}.{plcDataPTR.API.value}', str, size=DEV_API_SIZE)
-                _dev_info = self._ads.readVar(f'{_dev_info_symb}.{plcDataPTR.DeviceInfo.value}', str, size=DEV_INFO_SIZE)
-                _plcDev = PLCDev(dev_name=_dev_name, _dev_idx=_dev_idx, devAPI=_dev_api, devINFO=_dev_info, _comADS=self._ads)
+                _plcDev = PLCDev(dev_name=_dev_name, _comADS=self._ads)
                 _cdev = CDev(C_type=DevType.PLCDEV, C_port=None, c_id=None, \
                                                             c_serialN=None, c_dev=_plcDev, c_gui=_dev_idx+1)
 
@@ -1030,7 +1028,7 @@ class pcPlatformDevs(abstractPlatformDevs):
             print_log(f'No stepper group including FESTO devices defined in the configuration')
             return
 
-        print_log(f'Looking for FESTO in stepper group: \n{self.allDevs['ZABER']}  ')
+        print_log(f'Looking for FESTO in stepper group: \n{self.allDevs["ZABER"]}  ')
         try:
             print_log(f'Looking for  FESTO devs in neighbour nodes ')
             Festo_Motor.enum_devices()

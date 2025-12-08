@@ -43,7 +43,7 @@ class symbolsADS:           # ADS symbols used in PLC configuration w/default va
     _max_num_of_devs:str = 'G_Constant.MaxNumOfDrivers'
     _dev_array_str:str = 'G_System.fbExternalAPI.arDeviceInfo'
     _num_of_devices:str = 'G_System.fbExternalAPI.stDriverPool.NumberOfDriversInPool'
-    _max_number_of_runners:str = 'G_Constant.MaxNumOfExternalRunners'
+    _max_number_of_runners:str = 'G_System.fbExternalAPI.const_MaxNumOfExecutor'
 
 pick_method = Enum("pick_method", ["random", "up_end", "low_end"])
 
@@ -85,20 +85,22 @@ class Pool:
             raise ex
 
 class EN_DeviceCoreState(Enum):
-    START = 0,
-    IDLE = 1,
-    INIT = 2,
-    READY = 3,
-    RUN = 4,
-    DONE = 5,
-    STOPPING = 6,
-    PAUSING = 7,
-    PAUSED = 8,
-    RESUMING = 9,
-    RESUME = 10,
-    ERROR = 11,
+    START = 0
+    IDLE = 1
+    INIT = 2
+    READY = 3
+    RUN = 4
+    DONE = 5
+    STOPPING = 6
+    PAUSING = 7
+    PAUSED = 8
+    RESUMING = 9
+    RESUME = 10
+    ERROR = 11
     RESET = 12
     
+print(EN_DeviceCoreState.DONE.value)
+
 class apiPLC:
     def __init__(self, adsCom:commADS):
         pass
@@ -112,6 +114,7 @@ class commADS:
         self.__plc_name = None
         self.__plc_version = None
         try:
+            print_log(f'ADS INFO: Connecting to PLC with AMS NET ID={self.__ams_net_id} at IP={self.__remote_ip_address} on port={self.__ams_net_port}...')
             self.__plc = pyads.Connection(ams_net_id=self.__ams_net_id, \
                                          ams_net_port=self.__ams_net_port, ip_address = self.__remote_ip_address)
             if self.__plc is None:
@@ -158,6 +161,7 @@ class commADS:
             return ret_val
         
         except Exception as ex:
+            print_err(f'ADS ERROR: Exception occurred while reading variable {symbol_name}. Exception: {ex}')
             exptTrace(ex)
             raise ex    
 
@@ -185,6 +189,7 @@ class commADS:
             return True
         
         except Exception as ex:
+            print_err(f'ADS ERROR: Exception occurred while writing variable {symbol_name}. Exception: {ex}')
             exptTrace(ex)
             raise ex
 

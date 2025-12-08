@@ -35,7 +35,7 @@ import threading
 
 
 class BaseDev(ABC):
-    def __init__(self, devName:str, parms:dict):
+    def __init__(self, devName:str, parms:dict=None):
         self._parms:dict = parms
         self._devName:str = devName
         self._dev_lock:Lock = Lock()
