@@ -108,8 +108,12 @@ class PLCDev(BaseDev):
                 else:
                     raise Exception(f'[device {self._devName}] PLCDev initialization failed. commADS instance is not provided')     
                 
-            self.__devINFO = PLCDev.__ads.readVar(f'G_System.fbExternalAPI.arDeviceInfo[{self._dev_idx}].DeviceInfo', str, size=DEV_INFO_SIZE)
-            self.__devAPI = PLCDev.__ads.readVar(f'G_System.fbExternalAPI.arDeviceInfo[{self._dev_idx}].API', str, size=DEV_API_SIZE)
+            _tmpINFO = PLCDev.__ads.readVar(f'G_System.fbExternalAPI.arDeviceInfo[{self._dev_idx}].DeviceInfo', str, size=DEV_INFO_SIZE)
+            _tmpAPI = PLCDev.__ads.readVar(f'G_System.fbExternalAPI.arDeviceInfo[{self._dev_idx}].API', str, size=DEV_API_SIZE)
+
+            self.__devINFO = (json.loads(_tmpINFO) if _tmpINFO is not None else None) 
+            self.__devAPI = (json.loads(_tmpAPI) if _tmpAPI is not None else None)
+
             print_log(f'[device {self._devName}] PLCDev initialized. Device index = {self._dev_idx}, devAPI size = {len(self.__devAPI) if self.__devAPI is not None else 0}, devINFO size = {len(self.__devINFO) if self.__devINFO is not None else 0} / {self.__devINFO} ')
 
             if PLCDev.__number_of_runners is None:   # initialize number of runners
@@ -157,7 +161,7 @@ class PLCDev(BaseDev):
             print_log(f'PLCDev enum_devs: Number of configured devices in PLC = {num_of_devs}')
 
             for i in range(num_of_devs):
-                dev_name:str = _comADS.readVar(symbol_name=f'G_System.fbExternalAPI.arDeviceInfo[{i}].DeviceName', var_type=str, size=80)
+                dev_name:str = _comADS.readVar(symbol_name=f'G_System.fbExternalAPI.arDeviceInfo[{i+1}].DeviceName', var_type=str, size=DEV_NAME_SIZE)
                 # dev_name:str = "FronStage_AxisPCB"  #BUGFUCK
                 PLCDev.devsList.append(dev_name)
                 print_log(f'PLCDev enum_devs: Device index {i}, name = {dev_name}')
