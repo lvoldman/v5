@@ -50,11 +50,13 @@ class runnerFactory:
 
         return _run_indx
     
-    def detachDeviceFromRunner(self, dev:BaseDev, indx:int)-> bool:
+    def detachDeviceFromRunner(self, dev:BaseDev, indx:int)-> int:
         try:
             if dev in self.__runners_lst[indx - 1]:   # -1 because pool returns 1-based index
                 self.__runners_lst[indx - 1].remove(dev)
-                if len(self.__runners_lst[indx - 1]) == 0:
+                _runners_left = len(self.__runners_lst[indx - 1])
+                print_log(f'runnerFactory: Device {dev._devName} detached from runner {indx}. Devices left on runner: {_runners_left}')
+                if _runners_left == 0:
                     print_log(f'runnerFactory: No more devices attached to runner {indx}. Releasing runner.')
                     self._runners_pool.release(indx)
             else:
@@ -64,7 +66,7 @@ class runnerFactory:
             exptTrace(ex)
             raise ex
 
-        return True
+        return _runners_left
     
     @property
     def runnersLst(self)-> list:
@@ -108,8 +110,8 @@ class PLCDev(BaseDev):
                 else:
                     raise Exception(f'[device {self._devName}] PLCDev initialization failed. commADS instance is not provided')     
                 
-            _tmpINFO = PLCDev.__ads.readVar(f'G_System.fbExternalAPI.arDeviceInfo[{self._dev_idx}].DeviceInfo', str, size=DEV_INFO_SIZE)
-            _tmpAPI = PLCDev.__ads.readVar(f'G_System.fbExternalAPI.arDeviceInfo[{self._dev_idx}].API', str, size=DEV_API_SIZE)
+            _tmpINFO = PLCDev.__ads.readVar(symbol_name=f'{symbolsADS._dev_array_str}[{self._dev_idx}].DeviceInfo', var_type=str, size=DEV_INFO_SIZE)
+            _tmpAPI = PLCDev.__ads.readVar(symbol_name=f'{symbolsADS._dev_array_str}[{self._dev_idx}].API', var_type=str, size=DEV_API_SIZE)
 
             self.__devINFO = (json.loads(_tmpINFO) if _tmpINFO is not None else None) 
             self.__devAPI = (json.loads(_tmpAPI) if _tmpAPI is not None else None)
@@ -161,8 +163,7 @@ class PLCDev(BaseDev):
             print_log(f'PLCDev enum_devs: Number of configured devices in PLC = {num_of_devs}')
 
             for i in range(num_of_devs):
-                dev_name:str = _comADS.readVar(symbol_name=f'G_System.fbExternalAPI.arDeviceInfo[{i+1}].DeviceName', var_type=str, size=DEV_NAME_SIZE)
-                # dev_name:str = "FronStage_AxisPCB"  #BUGFUCK
+                dev_name:str = _comADS.readVar(symbol_name=f'{symbolsADS._dev_array_str}[{i+1}].DeviceName', var_type=str, size=DEV_NAME_SIZE)
                 PLCDev.devsList.append(dev_name)
                 print_log(f'PLCDev enum_devs: Device index {i}, name = {dev_name}')
 
@@ -213,18 +214,18 @@ class PLCDev(BaseDev):
 
             print_log(f'PLCDev runDevicesOp: Formated command for runner {runner} = {formatedCmd}')
 
-            PLCDev.__ads.writeVar(symbol_name=f'G_System.fbExternalAPI.fbExternalRunner[{runner}].ExecutionInfo', dataToSend = formatedCmd)
+            PLCDev.__ads.writeVar(symbol_name=f'{symbolsADS._runner_array_str}[{runner}].ExecutionInfo', dataToSend = formatedCmd)
 
-            PLCDev.__ads.writeVar(symbol_name=f'G_System.fbExternalAPI.fbExternalRunner[{runner}].DoLoadInfo', dataToSend = True)
+            PLCDev.__ads.writeVar(symbol_name=f'{symbolsADS._runner_array_str}[{runner}]._DoLoadInfo', dataToSend = True)
             
             print_log(f'[device {dev._devName}] Loaded ExecutionInfo to PLC for command="{cmdLst}"/"{formatedCmd}", runner={runner}')
 
 
             PLCDev.__global_lock.acquire()    # global mutex for runner operation sequence
-            PLCDev.__ads.writeVar(symbol_name=f'G_System.fbExternalAPI.fbExternalRunner[{runner}].DoRun', dataToSend = True)
+            PLCDev.__ads.writeVar(symbol_name=f'{symbolsADS._runner_array_str}[{runner}]._DoRun', dataToSend = True)
             PLCDev.__global_lock.release()   # release global mutex for runner operation sequence
 
-            _errorMsg:str = PLCDev.__ads.readVar(f'G_System.fbExternalAPI.fbExternalRunner[{runner}]._errorMessage', var_type=str, size=256)
+            _errorMsg:str = PLCDev.__ads.readVar(symbol_name=f'{symbolsADS._runner_array_str}[{runner}]._errorMessage', var_type=str, size=256)
             # BUGBUG // check if read will work right after write above
             if _errorMsg != '':
                 raise Exception(f'PLCDev runDevicesOp: Starting runner {runner} failed with error: {_errorMsg}')
@@ -350,11 +351,11 @@ class PLCDev(BaseDev):
                 
             
             while not self.__wd_thread_stop_event.is_set():  # main watch dog loop
-                exStatus:int = PLCDev.__ads.readVar(symbol_name=f'G_System.fbExternalAPI.fbExternalRunner[{self.__runnerNum}].eExecutionStatus', \
+                exStatus:int = PLCDev.__ads.readVar(symbol_name=f'{symbolsADS._runner_array_str}[{self.__runnerNum}].eExecutionStatus', \
                                                 var_type=int)
-                devState:int = PLCDev.__ads.readVar(symbol_name=f'G_System.fbExternalAPI.arDeviceInfo[{self._dev_idx}].State', \
+                devState:int = PLCDev.__ads.readVar(symbol_name=f'{symbolsADS._dev_array_str}[{self._dev_idx}].State', \
                                                 var_type=int)   
-                __jsonINFO = PLCDev.__ads.readVar(symbol_name=f'G_System.fbExternalAPI.arDeviceInfo[{self._dev_idx}].DeviceInfo', \
+                __jsonINFO = PLCDev.__ads.readVar(symbol_name=f'{symbolsADS._dev_array_str}[{self._dev_idx}].DeviceInfo', \
                                                 var_type=str, size=1024)   
                 if self.__devINFO is not None:      # update device info
                     self.__devINFO |= (json.loads(__jsonINFO) if __jsonINFO is not None else dict())
@@ -363,23 +364,42 @@ class PLCDev(BaseDev):
                 
                 # print_DEBUG(f'[device {self._devName}] ExecutionStatus = {STATUS(exStatus)} ({exStatus}) for runner = {self.__runnerNum}, DeviceState = {EN_DeviceCoreState(devState).name} ({devState})')
                 print_DEBUG(f'[device {self._devName}]  S:{exStatus} r:{self.__runnerNum}dev state:{devState} INFO={self.__devINFO}')
-                if exStatus == STATUS.DONE.value:   # Completed
-                    print_log(f'[device {self._devName}] at runner={self.__runnerNum} completed successfully')
-                    # BUGBUG: check if devisce is really stopped
-                    break
-                elif exStatus == STATUS.ERROR.value:   # Error
-                    _errorMsg:str = PLCDev.__ads.readVar(symbol_name=f'G_System.fbExternalAPI.fbExternalRunner[{self.__runnerNum}]._errorMessage', \
-                                                        var_type=str, size=256)
-                    print_err(f'[device {self._devName}] runner={self.__runnerNum} ended with ERROR: {_errorMsg}')
-                    self.success_flag = False
-                    break
                 
-                elif devState == EN_DeviceCoreState.ERROR.value:   #    Device in error state
-                    _errorMsg:str = PLCDev.__ads.readVar(symbol_name=f'G_System.fbExternalAPI.arDeviceInfo[{self._dev_idx}].ErrorMessage', \
+                if exStatus == STATUS.DONE.value:   # Completed
+                    print_DEBUG(f'[device {self._devName}] at runner={self.__runnerNum} completed successfully')
+                    # break
+                elif exStatus == STATUS.READY.value:   # Completed
+                    print_DEBUG(f'[device {self._devName}] at runner={self.__runnerNum} was stoped by external request')
+                    # break
+                elif exStatus == STATUS.ERROR.value:   # Error
+                    _errorMsg:str = PLCDev.__ads.readVar(symbol_name=f'{symbolsADS._runner_array_str}[{self.__runnerNum}]._errorMessage', \
+                                                        var_type=str, size=256)
+                    print_DEBUG(f'[device {self._devName}] runner={self.__runnerNum} ended with ERROR: {_errorMsg}')
+                    
+                    # break
+                
+                if devState == EN_DeviceCoreState.ERROR.value:   #    Device in error state
+                    _errorMsg:str = PLCDev.__ads.readVar(symbol_name=f'{symbolsADS._dev_array_str}[{self._dev_idx}].ErrorMessage', \
                                                         var_type=str, size=256)
 
-                    print_err(f'[device {self._devName}] Device entered ERROR state during runner={self.__runnerNum}. Error meassage = {_errorMsg}')
+                    print_log(f'[device {self._devName}] ERROR: Device entered ERROR state during runner={self.__runnerNum}. Error meassage = {_errorMsg}')
+                    self.success_flag = False
                     break  
+                elif devState == EN_DeviceCoreState.DONE.value:   #    Device in error state
+                    print_log(f'[device {self._devName}] Device entered DONE state during runner={self.__runnerNum}')
+                    self.success_flag = True
+                    PLCDev.__ads.writeVar(symbol_name=f'{symbolsADS._device_access}[{self._dev_idx}]._DoAck', dataToSend = True)
+                    break  
+                elif devState == EN_DeviceCoreState.READY.value:   #    Device in error state
+                    print_log(f'[device {self._devName}] Device entered READY state during runner={self.__runnerNum}.')
+                    self.success_flag = True
+                    break 
+                elif devState != EN_DeviceCoreState.RUN.value:   #    Device in error state
+                    _errorMsg:str = PLCDev.__ads.readVar(symbol_name=f'{symbolsADS._dev_array_str}[{self._dev_idx}].ErrorMessage', \
+                                                        var_type=str, size=256)
+                    print_log(f'[device {self._devName}] ERROR: Device in non RUN state = ({EN_DeviceCoreState(devState).name}) runner={self.__runnerNum}. {"Error="+_errorMsg if _errorMsg != "" else ""}')
+                    self.success_flag = False
+                    break 
                 
                 time.sleep(0.5)
                     
@@ -393,7 +413,11 @@ class PLCDev(BaseDev):
         else:
             self.__wd_thread_stop_event.set()    # set the stop event if exiting normally
 
-        PLCDev.__runner_factory.detachDeviceFromRunner(self, self.__runnerNum)
+        _runners_left = PLCDev.__runner_factory.detachDeviceFromRunner(self, self.__runnerNum)
+        if _runners_left == 0:          # last device on the runner
+            print_log (f'[device {self._devName}] Last device on runner = {self.__runnerNum} has completed operation.') 
+            PLCDev.__ads.writeVar(symbol_name=f'{symbolsADS._runner_array_str}[{self.__runnerNum}]._DoAck', dataToSend = True)
+                                        # acknowledge runner operation completion in PLC
 
         print_log (f'[device {self._devName}] Watch dog thread for devices on runner = {self.__runnerNum} has ended')
         print_log (f'[device {self._devName}] Info = {self.__devINFO}')
@@ -402,10 +426,18 @@ class PLCDev(BaseDev):
         self.devNotificationQ.put(self.success_flag)
         self.__lastCmd = None
         self.__wd = None
+
         return
     
     def stop(self) -> bool:
-        self.__wd_thread_stop_event.set()   # signal the watch dog thread to stop
+        try:
+            PLCDev.__ads.writeVar(symbol_name=f'{symbolsADS._device_access}[{self._dev_idx}]._DoStop', dataToSend = True)
+            # stop device operation in PLC
+        except Exception as ex:
+            exptTrace(ex)
+            raise ex
+        
+        # self.__wd_thread_stop_event.set()   # signal the watch dog thread to stop
         return True
 
     def devQuery(self, query:str, timeout:float=0)-> str:
@@ -446,8 +478,15 @@ if __name__ == "__main__":
     #                     }
     #             ]
     #     }
+
+    '''
     REMOTE_IP = '192.168.10.92'
     AMS_NETID = '192.168.10.92.1.1'
+    '''
+
+    REMOTE_IP = '192.168.10.153'
+    AMS_NETID = '192.168.137.1.1.1'
+
 
     _ads = commADS(AMS_NETID, REMOTE_IP )
 
@@ -469,31 +508,37 @@ if __name__ == "__main__":
 
 
     testData:dict = {
-        "InstanceName": "FronStage_AxisPCB",
+        "InstanceName": "Single Axis",
         "TaskName": "Move Relative",
-        "TaskParams": "{\"Dis\":1000}",
+        "TaskParams": "{\"Dis\":100}",
         "IsBreak": False
     }
     testData2:dict =  {
-        "InstanceName": "BackStage_AxisPCB",
+        "InstanceName": "Single Axis 2",
         "TaskName": "Move Relative",
-        "TaskParams": "{\"Dis\":1000}",
+        "TaskParams": "{\"Dis\":200}",
         "IsBreak": False
     }
 
     testCMD:str = json.dumps(testData)
     testCMD2:str = json.dumps(testData2)
     print("[UNITEST]PLCDev module unit test")
-    testDev = PLCDev(dev_name='FronStage_AxisPCB',  _comADS=_ads)
-    testDev2 = PLCDev(dev_name='BackStage_AxisPCB',  _comADS=_ads)
+    # testDev = PLCDev(dev_name='FronStage_AxisPCB',  _comADS=_ads)
+    # testDev2 = PLCDev(dev_name='BackStage_AxisPCB',  _comADS=_ads)
+
+    testDev = PLCDev(dev_name='Single Axis',  _comADS=_ads)
+    testDev2 = PLCDev(dev_name='Single Axis 2',  _comADS=_ads)
+
 
     runnerNum = testDev.loadDeviceOp(command=testCMD)
     runnerNum = testDev2.loadDeviceOp(command=testCMD2, runnerNum=runnerNum)
     print(f'[UNITEST]Device command loaded at runner = {runnerNum} for command="{testCMD}"')
     toBlock, opResult = PLCDev.runDevicesOp(runner=runnerNum)
     print(f'[UNITEST]Runner started: toBlock={toBlock}, opResult={opResult}. Waiting for completion ...')    
-    opResult = testDev.devNotificationQ.get()         # the ONLY block untill completed
-    testDev.devNotificationQ.task_done()
+    if toBlock:
+        opResult = testDev.devNotificationQ.get()         # the ONLY block untill completed
+        testDev.devNotificationQ.task_done()
+
     print(f'[UNITEST]Device operation completed. Device = {testDev._devName} + {testDev2._devName}. Result = {opResult}')
 
         

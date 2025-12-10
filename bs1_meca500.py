@@ -14,14 +14,12 @@ import mecademicpy.tools as tools
 import mecademicpy.robot_classes as robot_classes
 
 from enum import Enum
-from typing import Callable
+from collections.abc import Callable
 from bs1_asyril import AsyrilInterface
 
 import time, re
 import os.path
 from collections import namedtuple
-
-from typing import Optional
 
 import logging, sys, datetime, yaml
 import threading

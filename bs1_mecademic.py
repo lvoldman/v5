@@ -14,14 +14,13 @@ import mecademicpy.tools as tools
 import mecademicpy.robot_classes as robot_classes
 
 from enum import Enum
-from typing import Callable
+from collections.abc import Callable
 from bs1_asyril import AsyrilInterface
 
 import time, re
 import os.path
 from collections import namedtuple
 
-from typing import Optional
 
 import logging, sys, datetime, yaml
 import threading
@@ -1472,7 +1471,7 @@ class robotMecademic(baseRobot):
             _splited_cmd = r_cmd.split("(")
             _cmd = _splited_cmd[0]
             
-            parm:Optional[str] = None
+            parm = None
 
             if len(_splited_cmd) > 1:
                 parm = _splited_cmd[1].split(")")[0]
@@ -1547,7 +1546,7 @@ class robotMecademic(baseRobot):
                     _splited_cmd = _item.split("(")
                     _cmd = _splited_cmd[0]
                     
-                    parm:Optional[str] = None
+                    parm = None
 
                     if len(_splited_cmd) > 1:
                         parm = _splited_cmd[1].split(")")[0]

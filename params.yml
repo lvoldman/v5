@@ -1,0 +1,245 @@
+# DEAFULT:
+#     MEASUREMENT_DELAY:  0.25
+#     MINIMAL_OP_DURATION: 0.25
+#     GRIPPER_TIMEOUT:  5
+#     DEAFULT_VELOCITY_EV_VOLTAGE: 10000
+#     GRIPPER_DEFAULT_CURRENT_LIMIT: 120
+#     TROLLEY_DEFAULT_CURRENT_LIMIT: 1500  #TROLLEY CURRENT
+#     DEFAULT_CURRENT_LIMIT: 100
+#     DEAFULT_TROLLEY_RPM: 840
+#     DEFAULT_ROTATION_TIME: 5
+#     SPINNER_DEFAULT_CURRENT_LIMIT: 120
+#     MAX_ACCEL: 205                 
+#     ACCEL_PERCENT: 100 #zaber % of accel. was 5
+#     RAMP_TIME: 50
+#     CURRENT_RUN: 17
+#     DEFAULT_VELOCITY_PERCENTAGE: 100
+#     SELECTOR_TRIGGER_DELAY: 0.1
+#     TIMEOUT_ERROR: 10
+#     MAX_MOVEMENT: 400 
+#     TROLLEY_PARKING_VELOCITY: 25  
+#     Z_MAXSPEED: 30   # zaber maximum speed
+#     TITLE: 'DEFAULT'
+#     MAXON_DEV: 'EPOS4'
+#     MAXON_INTERFACE: 'USB'
+#     DevMaxSPEED: 15000
+#     DevOpSPEED: 640
+#     ROTATION_FORCE: 50              # 20 - 100%
+#     GRIPPER_FORCE: 50               # 20 -100 %
+#     DEFAULT_ROTATION_SPEED: 50
+#     DEFAULT_GRIPPER_SPEED: 50
+#     RND_STEP: 0.5                   # step for random moving 
+#     DH_TOLERANCE_LIMIT: 0              # target error tolerance 
+#     TOLERANCE_LIMIT: 100
+#     QUCK_STOP_DEC: 60000
+
+
+# G1:
+#     TITLE: 'Electrod Stage'
+#     MEASUREMENT_DELAY:  0.25
+#     MINIMAL_OP_DURATION: 0.1
+#     GRIPPER_TIMEOUT:  5
+#     DEAFULT_VELOCITY_EV_VOLTAGE: 10000
+#     DevMaxSPEED:  15005
+#     DevOpSPEED:  648
+#     GRIPPER_DEFAULT_CURRENT_LIMIT: 13
+
+# G2:
+#     TITLE: 'GRIPPER'
+#     MEASUREMENT_DELAY:  0.25
+#     MINIMAL_OP_DURATION: 0.25
+#     GRIPPER_TIMEOUT:  5
+#     DEAFULT_VELOCITY_EV_VOLTAGE: 18000
+#     DevMaxSPEED:  15005
+#     DevOpSPEED:  648
+#     GRIPPER_DEFAULT_CURRENT_LIMIT: 19
+
+
+# R1:
+#     TITLE: 'Gripper Driver'
+#     MEASUREMENT_DELAY:  0.25
+#     MINIMAL_OP_DURATION: 0.25
+#     DEFAULT_CURRENT_LIMIT: 500
+#     DEAFULT_VELOCITY_EV_VOLTAGE: 5005
+#     DevMaxSPEED:  15009
+#     DevOpSPEED:  649
+#     DIAMETER: 6
+#     GEAR: 64
+
+# R2:
+#     TITLE: 'PCB Driver'
+#     MEASUREMENT_DELAY:  0.25
+#     MINIMAL_OP_DURATION: 0.25
+#     DEFAULT_CURRENT_LIMIT: 500
+#     DEAFULT_VELOCITY_EV_VOLTAGE: 5005
+#     DevMaxSPEED:  15009
+#     DevOpSPEED:  649
+#     DIAMETER: 6
+#     GEAR: 64
+
+
+
+
+# # T1:
+# #     MEASUREMENT_DELAY:  0.25
+# #     MINIMAL_OP_DURATION: 0.25
+# #     DEAFULT_TROLLEY_RPM: 841
+# #     TROLLEY_DEFAULT_CURRENT_LIMIT: 1105
+# #     TROLLEY_PARKING_VELOCITY: 25   
+
+
+
+
+# # S1:
+# #     MEASUREMENT_DELAY: 0.25
+# #     MINIMAL_OP_DURATION: 0.25
+# #     DEFAULT_ROTATION_TIME: 5
+# #     SPINNER_DEFAULT_CURRENT_LIMIT: 125
+# #     DEAFULT_VELOCITY_EV_VOLTAGE: 20000
+
+
+# # Z6:
+# #     MAX_ACCEL: 205                 
+# #     ACCEL_PERCENT: 20
+
+
+
+
+# Z1:
+#     TITLE: 'BACK/FWRD'
+#     MAX_ACCEL: 199                 
+#     ACCEL_PERCENT: 100
+#     RAMP_TIME: 50
+#     CURRENT_RUN: 17
+#     DEFAULT_VELOCITY_PERCENTAGE: 100
+#     Z_MAXSPEED: 25
+#     RND_STEP: 1
+    
+# CAM1:
+#     TIMEOUT_ERROR: 20
+#     MAX_MOVEMENT: 100000 
+#     MOTORS: Z3, Z4, D1/D2
+    
+
+# CAM2:
+#     TIMEOUT_ERROR: 20
+#     MAX_MOVEMENT: 100000 
+#     MOTORS: Z6, Z8, D1/D2
+    
+
+
+# Z2:
+#     TITLE: 'IN/OUT-DISP'
+#     MAX_ACCEL: 199          # mm/sec2           
+#     ACCEL_PERCENT: 100
+#     RAMP_TIME: 50
+#     CURRENT_RUN: 17
+#     DEFAULT_VELOCITY_PERCENTAGE: 100
+#     Z_MAXSPEED: 25    # rpm
+# Z3:
+#     TITLE: 'UP/DOWN-DISP'
+#     MAX_ACCEL: 199          # mm/sec2           
+#     ACCEL_PERCENT: 100
+#     RAMP_TIME: 50
+#     CURRENT_RUN: 17
+#     DEFAULT_VELOCITY_PERCENTAGE: 100
+#     Z_MAXSPEED: 25    # rpm
+
+# Z4:
+#     TITLE: 'RIGHT/LEFT-PRODUCT'
+#     MAX_ACCEL: 199          # mm/sec2           
+#     ACCEL_PERCENT: 100
+#     RAMP_TIME: 50
+#     CURRENT_RUN: 17
+#     DEFAULT_VELOCITY_PERCENTAGE: 100
+#     Z_MAX8: 25    # rpm
+
+
+# CAM1:
+#     # CAM_MB_IP: 192.168.230.51
+#     # CAM_MB_PORT: 1502
+#     TIMEOUT_ERROR: 10
+#     MAX_MOVEMENT: 400  
+#     PROFILES:
+#         ELEC_FRONT: 1
+#         ELEC_BACK: 2
+#         PCB_FRONT: 3
+#         PCB_BACK: 4
+# # TRIGGER:
+# #     SELECTOR_TRIGGER_DELAY: 0.1
+
+# MCDMC1:
+#     TYPE: MCS500                        # MECA500 / MCS500
+#     PUT_H_ASYRIL: 92.0                 # put part height 
+#     PICKUP_H_ASYRIL: 79.1403             # pich part height (asyril) 
+#     PICK_PRESSURE_EL: -84.5
+#     VACUUM_PURGE_DURATION_EL: 0.5
+
+
+#     VACUUM_PURGE_DURATION_PCB: 2.5
+#     PICKUP_PRESSURE_PCB: -84.5
+#     PICKUP_H_COGNEX: 79.1403             # pich part height (coxnex) 
+#     PUT_H_COGNEX: 92.0
+#     PICKUP_OFFSET_PCB: 0.5, 0
+
+#     DEFAULT_PICKUP_PRESSURE: -85
+
+#     WORKING_H: 44               # movement height 
+#     VELOCITY: 25
+#     PICK_DELAY: 0.5
+#     PUT_DELAY: 0.5
+#     WORK_ZONE_LIMIT_XYZ_MIN: 0, 0, 0   #  SetWorkZoneLimits - xmin,ymin,zmin,
+#     WORK_ZONE_LIMIT_XYZ_MAX: 0, 0, 0    # xmax,ymax,zmax
+#     START_POSITION: 0, 0, 0, 0          # x, y, z, gamma (coordinates)
+#     RELIEF_POSITION: 0, 0, 0, 0         # q1,q2,q3,q4 for MoveJoints(q1,q2,q3,q4)
+#     MID_JOINTS_POSITION: -67.69506, -55.04702, -65.00323, -1548.44055     
+#                                         # MoveJoints(q1,q2,q3,q4)
+#                                         # −140° ≤ q1 ≤ 140°, −145° ≤ q2 ≤ 145°, −102 mm ≤ q3 ≤ 0 mm, −3,600° ≤ q4 ≤ 3,600°.
+
+#     REPEATS: 3
+#     PUT_ANGLE: 180                      
+#     PICK_ANGLE_RANGE: 0, 180            #  must be more or equal 180 for symetric parts, = 360 for non symetric  
+#     ASYRIL: 192.168.1.50:7171/61013     # ip:port/recipe
+#     COGNEX: 192.168.10.10:502
+
+#     PICKUP_ANGLE: 0
+
+#     3DPOSITIONS:
+#         STAGEBACKLEFT: ..., -52.03, -52.03, -159.01
+#         P1: -52.03, -159.01, ..., 52
+#         P2: -52.03, ..., -159.01, ...
+#         P3: ..., ..., -52.03, -159.01
+#         P4: -52.03, -159.01, -159.01, -159.01
+
+
+# DHRB:
+#     ROTATION_FORCE: 50              # 20 - 100%
+#     GRIPPER_FORCE: 50               # 20 -100 %
+#     DEFAULT_ROTATION_SPEED: 100      # 1 - 100 
+#     DEFAULT_GRIPPER_SPEED: 50       # 1 - 100
+#     DH_TOLERANCE_LIMIT: 0              # target error tolerance 
+
+# PHG:
+#     WELDER:  "Welder"
+#     JTSE_HOTAIR:  "JTSE HotAir"
+#     DISP:  "Dispenser"
+#     UV:  "UV"
+#     UV1:  "UV1"
+#     BACKLIGHT:  "Back" 
+#     FRONTLIGHT:  "Front"
+#     HOLELIGHT:  "Hole"
+#     RED: "RED"
+#     BLUE: UV alarm, 5000              # name, trigger time in ms
+
+
+
+
+# DAQ1:
+#     TIMEOUT: 0.5
+#     LCK1: port0.line1
+#     LCK2: port0.line2
+
+# DB:
+#     TIMEOUT: 5
+#     DB_NAME: production.db
+#     TBL_NAME: statistic

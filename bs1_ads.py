@@ -44,6 +44,8 @@ class symbolsADS:           # ADS symbols used in PLC configuration w/default va
     _dev_array_str:str = 'G_System.fbExternalAPI.arDeviceInfo'
     _num_of_devices:str = 'G_System.fbExternalAPI.stDriverPool.NumberOfDriversInPool'
     _max_number_of_runners:str = 'G_System.fbExternalAPI.const_MaxNumOfExecutor'
+    _runner_array_str:str = 'G_System.fbExternalAPI.fbExternalRunner'
+    _device_access:str = 'G_System.fbExternalAPI.stDriverPool.DriverPool'
 
 pick_method = Enum("pick_method", ["random", "up_end", "low_end"])
 
@@ -99,8 +101,6 @@ class EN_DeviceCoreState(Enum):
     ERROR = 11
     RESET = 12
     
-print(EN_DeviceCoreState.DONE.value)
-
 class apiPLC:
     def __init__(self, adsCom:commADS):
         pass

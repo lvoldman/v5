@@ -23,7 +23,11 @@ from queue import Queue
 
 
 from bs1_utils import print_log, print_inf, print_err, print_DEBUG, exptTrace, s16, s32, num2binstr, set_parm, get_parm, void_f, assign_parm
-from bs2_config import DevType
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from bs2_config import DevType
 
 print_DEBUG = void_f
 

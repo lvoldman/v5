@@ -1,5 +1,6 @@
 import serial as serial
 import serial.tools.list_ports
+from serial.tools.list_ports_common import ListPortInfo
 import sys
 from queue import Queue 
 import re, time
@@ -63,7 +64,7 @@ class JTSEcontrol:
     
     '''
     @staticmethod
-    def recognizeDev(ps:serial.tools.list_ports.ListPortInfo, dev_name:str = 'JTSE' )->str:
+    def recognizeDev(ps:ListPortInfo, dev_name:str = 'JTSE' )->str:
         _res:str = None
         _ser = None
         try:

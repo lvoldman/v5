@@ -1,4 +1,5 @@
-# from __future__ import annotations
+from __future__ import annotations
+
 
 __author__ = "Leonid Voldman"
 __copyright__ = "Copyright 2024"
@@ -9,50 +10,43 @@ __maintainer__ = "Leonid Voldman"
 __email__ = "vleonid@voldman.com"
 __status__ = "Tool"
 
+from typing import TYPE_CHECKING
 import serial.tools.list_ports
 from queue import Queue 
-from typing import List
 from abc import ABC, abstractmethod
 from collections import namedtuple
 from dataclasses import dataclass
-from bs1_ads import commADS
-
-from bs1_base_motor import BaseDev
-
+import yaml, sys
 from zaber_motion.ascii import Connection, Device
-import zaber_motion, yaml, sys, bs1_faulhaber
-
-from bs1_faulhaber import FH_Motor, FH_cmd
-
-from bs1_zaber import Zaber_Motor
-
-from bs1_FHv3 import FH_Motor_v3
-from bs1_maxon import MAXON_Motor
-from bs1_ni6002 import NI6002
-from bs1_cam_modbus import Cam_modbus
-from bs1_HAMEG import HMP_PS
-from bs1_DH_RB_modbus import DH_ROB_RGI_modbus
-from bs1_phidget import PhidgetRELAY
-from bs1_mecademic import robotMecademic
-from bs1_meca500 import robotMeca500
-from bs1_marco_modbus import Marco_modbus
-from bs1_utils import  get_parm, assign_parm
-from bs1_interlock import InterLock
-from bs1_io_control import IOcontrol
-from bs1_festo_modbus import Festo_Motor
-from bs1_sqlite import StatisticSQLite 
-from bs1_jtse_serial import  JTSEcontrol
-from bs1_plc_dev import PLCDev, symbolsADS
-
 from enum import Enum
-
-
-
 from zaber_motion import Units, MotionLibException, MovementFailedException
-
 import datetime, re
 
-from bs1_utils import print_log, print_inf, print_err, print_DEBUG, exptTrace, s16, s32, void_f 
+from bs1_ads import commADS, symbolsADS
+from bs1_plc_dev import PLCDev
+
+if TYPE_CHECKING:
+    from bs1_base_motor import BaseDev
+    from bs1_faulhaber import FH_Motor, FH_cmd, fh_baudrate, fh_timeout, fh_break_duration
+    from bs1_zaber import Zaber_Motor
+    from bs1_FHv3 import FH_Motor_v3
+    from bs1_maxon import MAXON_Motor
+    from bs1_ni6002 import NI6002
+    from bs1_cam_modbus import Cam_modbus
+    from bs1_HAMEG import HMP_PS
+    from bs1_DH_RB_modbus import DH_ROB_RGI_modbus
+    from bs1_phidget import PhidgetRELAY
+    from bs1_mecademic import robotMecademic
+    from bs1_meca500 import robotMeca500
+    from bs1_marco_modbus import Marco_modbus
+    from bs1_interlock import InterLock
+    from bs1_io_control import IOcontrol
+    from bs1_festo_modbus import Festo_Motor
+    from bs1_sqlite import StatisticSQLite 
+    from bs1_jtse_serial import  JTSEcontrol
+
+from bs1_utils import print_log, print_inf, print_err, print_DEBUG, exptTrace, s16, s32, void_f, \
+                        assign_parm, get_parm  
 print_DEBUG = void_f
 
 # DEV_API_SIZE = 4000  # bytes
@@ -74,9 +68,7 @@ DevType = Enum("DevType", ["TIME_ROTATOR", "DIST_ROTATOR", "TROLLEY", "GRIPPER",
 ZABER_ID = 1027
 FAULHABER_ID = 2134
 #==============================
-fh_baudrate = bs1_faulhaber.fh_baudrate
-fh_timeout = bs1_faulhaber.fh_timeout
-fh_break_duration = bs1_faulhaber.fh_break_duration
+
 #==============================
 
 getDevbySN = lambda devs, sn: next((_dev for _dev, _sn in devs.items() if _sn == sn), None)
@@ -155,18 +147,23 @@ class systemDevices:
         self.__platform_devs:abstractPlatformDevs = None
 
         try:
-            with open(self.__config_file) as p_file:
+            with open(self.__conf_file) as p_file:
                 doc = yaml.safe_load(p_file)
+                _keys = list(doc.keys())
+                print_log(f'Config file = {doc}, keys = {_keys}' )
                 if doc is not None:
-                    if 'ADS_NETID' in doc.values():
+                    if 'ADS_NETID' in _keys or 'REMOTE_IP' in _keys:
+                        print_log(f'PLC platform detected in configuration file {self.__conf_file}')
                         self.__platform_devs = plcPlatformDevs(self.__conf_file, self.__params_file)
                     else:
+                        print_log(f'PC platform detected in configuration file {self.__conf_file}')
                         self.__platform_devs = pcPlatformDevs(self.__conf_file, self.__params_file) 
         
 
         except Exception as ex:
             print_err(f'Error reading parameters file, exception = {ex}')
             exptTrace(ex)
+            raise ex
         
         try:
             # scan ports and add devices defined in the configuration file
@@ -174,6 +171,7 @@ class systemDevices:
         except Exception as ex:
             print_err(f'Error scanning ports and loading devices, exception = {ex}')
             exptTrace(ex)        
+            raise ex
         
     # bracket notation for getting/setting devices by name (example: sysDevs['T1'] / sysDevs['G1'] = CDev(...) )
     def __getitem__(self, _devName:str) -> CDev:
@@ -223,12 +221,12 @@ class abstractPlatformDevs(ABC):
     
 
 class plcPlatformDevs(abstractPlatformDevs):
+    _max_num_of_devs:int = None
 
     def __init__(self, _config_file:str = None, _params_file:str = None):
         super().__init__()
         self.ADS_NETID = None
         self.REMOTE_IP = None
-        self.SYMBOLS = symbolsADS()
         self._ads:commADS = None
         self._plcDevs:dict = dict()   # {dev_name1: PLCDev1, dev_name2: PLCDev2, ...}
         self.number_of_devs:int = 0
@@ -238,12 +236,9 @@ class plcPlatformDevs(abstractPlatformDevs):
             with open(self.__config_file) as p_file:
                 doc = yaml.safe_load(p_file)
                 _keys = doc.keys()
-                if 'ADS_NETID' in  _keys and 'REMOTE_IP' in _keys:
+                if 'ADS_NETID' in  _keys or 'REMOTE_IP' in _keys:
                     self.ADS_NETID = doc['ADS_NETID']
                     self.REMOTE_IP = doc['REMOTE_IP']
-                    self.SYMBOLS._max_num_of_devs = doc['MAX_NUM_OF_DEVS'] if 'MAX_NUM_OF_DEVS' in _keys else self.SYMBOLS._max_num_of_devs
-                                                        # alternative symbol names
-                    self.SYMBOLS._dev_array_str = doc['DEV_ARRAY_STR'] if 'DEV_ARRAY_STR' in _keys else self.SYMBOLS._dev_array_str
                 else:
                     raise Exception(f'Error: ADS_NETID or REMOTE_IP are not defined in the configuration file {_config_file}')
                 
@@ -254,7 +249,8 @@ class plcPlatformDevs(abstractPlatformDevs):
                 if not _ams_re_compiled.match(self.ADS_NETID) or not _remip_re_compiled.match(self.REMOTE_IP):
                     raise Exception(f'Error: Wrong ADS_NETID ({self.ADS_NETID}) or REMOTE_IP ({self.REMOTE_IP}) format in the configuration file {_config_file}')
                 
-                self._ads = commADS(self.REMOTE_IP, self.ADS_NETID)
+                self._ads = commADS(self.ADS_NETID, self.REMOTE_IP)
+                plcPlatformDevs._max_num_of_devs = doc['MAX_NUM_OF_DEVS'] if 'MAX_NUM_OF_DEVS' in _keys else self._ads.readVar(symbol_name=symbolsADS._max_num_of_devs, var_type=int)
                 
 
 
@@ -582,6 +578,10 @@ class pcPlatformDevs(abstractPlatformDevs):
         try:
             with open(params_file) as p_file:
                 doc = yaml.safe_load(p_file)
+                if doc is None:
+                    print_log(f'No parameters defined in the parameters file {params_file}')
+                    return params_table
+                
                 for dev, dev_parms in doc.items():       # devivce parm is a dictionary 
                     params_table[dev] = dict()
                     for i, parm in enumerate(dev_parms):
@@ -633,7 +633,7 @@ class pcPlatformDevs(abstractPlatformDevs):
 
                 if ps.vid == FAULHABER_ID:                      # vid = 2134 // Faulhaber
                     if len(faulhaberTypes & configuredDevs) > 0:        #  if Faulhaber devices are configured
-                        _fhSN = bs1_faulhaber.FH_Motor.recognizeDev(ps)
+                        _fhSN = FH_Motor.recognizeDev(ps)
                         if _fhSN is not None:
                             print_log (f'Faulhaber device with S/N = {_fhSN} found on port {ps.device}')    
 
@@ -1340,7 +1340,7 @@ def get_dev(dev_descr:str, devs_list: list[CDev]):
     return None
 
 
-def port_scan(configuration_file = 'serials.yml', params_file = 'params.yml')->List: 
+def port_scan(configuration_file = 'serials.yml', params_file = 'params.yml')->list[CDev]: 
 
     
     devs: list[CDev] = list()
@@ -2086,13 +2086,12 @@ if __name__ == "__main__":
 
     print_log ('Starting')
 
-    load_dev_config('serials.yml')
+    # load_dev_config('serials.yml')
     # sys.exit()
 
-    # seN = 116773
-    # if seN in ZABER:
-    #     print (f'{seN} in ZABER {ZABER}')
-
+    a = systemDevices()
+    sys.exit()
+    
     devs = port_scan()
     print_log(f'Ports scanning done. Found {len(devs)} devices')
     for op_dev in devs:

@@ -22,8 +22,12 @@ from inputimeout  import inputimeout , TimeoutOccurred
 from dataclasses import dataclass
 from queue import Queue 
 
+from typing import TYPE_CHECKING
 
-from bs2_config import DevType
+if TYPE_CHECKING:
+    from bs2_config import DevType
+
+    
 from bs1_utils import print_log, print_inf, print_err, print_DEBUG, exptTrace, s16, s32, num2binstr, set_parm, get_parm, globalEventQ, smartLocker
 import momanlibpy
 

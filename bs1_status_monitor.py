@@ -18,7 +18,11 @@ from queue import Queue
 from enum import Enum
 from bs1_DH_RB_modbus import MAX_DH_ANGLE
 from Motors_Control_Dashboard import SetLED
-from bs2_config import DevType
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from bs2_config import DevType
 
 tSync = Enum("tSync", ["start", "stop", "cont"])
 
