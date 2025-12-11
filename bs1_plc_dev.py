@@ -110,8 +110,8 @@ class PLCDev(BaseDev):
                 else:
                     raise Exception(f'[device {self._devName}] PLCDev initialization failed. commADS instance is not provided')     
                 
-            _tmpINFO = PLCDev.__ads.readVar(symbol_name=f'{symbolsADS._dev_array_str}[{self._dev_idx}].DeviceInfo', var_type=str, size=DEV_INFO_SIZE)
-            _tmpAPI = PLCDev.__ads.readVar(symbol_name=f'{symbolsADS._dev_array_str}[{self._dev_idx}].API', var_type=str, size=DEV_API_SIZE)
+            _tmpINFO = PLCDev.__ads.readVar(symbol_name=f'{symbolsADS._device_access}[{self._dev_idx}]._instanceInfo', var_type=str, size=DEV_INFO_SIZE)
+            _tmpAPI = PLCDev.__ads.readVar(symbol_name=f'{symbolsADS._device_access}[{self._dev_idx}]._API', var_type=str, size=DEV_API_SIZE)
 
             self.__devINFO = (json.loads(_tmpINFO) if _tmpINFO is not None else None) 
             self.__devAPI = (json.loads(_tmpAPI) if _tmpAPI is not None else None)
@@ -163,7 +163,7 @@ class PLCDev(BaseDev):
             print_log(f'PLCDev enum_devs: Number of configured devices in PLC = {num_of_devs}')
 
             for i in range(num_of_devs):
-                dev_name:str = _comADS.readVar(symbol_name=f'{symbolsADS._dev_array_str}[{i+1}].DeviceName', var_type=str, size=DEV_NAME_SIZE)
+                dev_name:str = _comADS.readVar(symbol_name=f'{symbolsADS._device_access}[{i+1}]._instanceName', var_type=str, size=DEV_NAME_SIZE)
                 PLCDev.devsList.append(dev_name)
                 print_log(f'PLCDev enum_devs: Device index {i}, name = {dev_name}')
 
@@ -353,9 +353,9 @@ class PLCDev(BaseDev):
             while not self.__wd_thread_stop_event.is_set():  # main watch dog loop
                 exStatus:int = PLCDev.__ads.readVar(symbol_name=f'{symbolsADS._runner_array_str}[{self.__runnerNum}].eExecutionStatus', \
                                                 var_type=int)
-                devState:int = PLCDev.__ads.readVar(symbol_name=f'{symbolsADS._dev_array_str}[{self._dev_idx}].State', \
+                devState:int = PLCDev.__ads.readVar(symbol_name=f'{symbolsADS._device_access}[{self._dev_idx}].eState', \
                                                 var_type=int)   
-                __jsonINFO = PLCDev.__ads.readVar(symbol_name=f'{symbolsADS._dev_array_str}[{self._dev_idx}].DeviceInfo', \
+                __jsonINFO = PLCDev.__ads.readVar(symbol_name=f'{symbolsADS._device_access}[{self._dev_idx}]._instanceInfo', \
                                                 var_type=str, size=1024)   
                 if self.__devINFO is not None:      # update device info
                     self.__devINFO |= (json.loads(__jsonINFO) if __jsonINFO is not None else dict())
@@ -379,7 +379,7 @@ class PLCDev(BaseDev):
                     # break
                 
                 if devState == EN_DeviceCoreState.ERROR.value:   #    Device in error state
-                    _errorMsg:str = PLCDev.__ads.readVar(symbol_name=f'{symbolsADS._dev_array_str}[{self._dev_idx}].ErrorMessage', \
+                    _errorMsg:str = PLCDev.__ads.readVar(symbol_name=f'{symbolsADS._device_access}[{self._dev_idx}]._errorMessage', \
                                                         var_type=str, size=256)
 
                     print_log(f'[device {self._devName}] ERROR: Device entered ERROR state during runner={self.__runnerNum}. Error meassage = {_errorMsg}')
@@ -395,7 +395,7 @@ class PLCDev(BaseDev):
                     self.success_flag = True
                     break 
                 elif devState != EN_DeviceCoreState.RUN.value:   #    Device in error state
-                    _errorMsg:str = PLCDev.__ads.readVar(symbol_name=f'{symbolsADS._dev_array_str}[{self._dev_idx}].ErrorMessage', \
+                    _errorMsg:str = PLCDev.__ads.readVar(symbol_name=f'{symbolsADS._device_access}[{self._dev_idx}]._errorMessage', \
                                                         var_type=str, size=256)
                     print_log(f'[device {self._devName}] ERROR: Device in non RUN state = ({EN_DeviceCoreState(devState).name}) runner={self.__runnerNum}. {"Error="+_errorMsg if _errorMsg != "" else ""}')
                     self.success_flag = False

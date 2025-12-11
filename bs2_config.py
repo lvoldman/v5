@@ -28,22 +28,22 @@ from bs1_plc_dev import PLCDev
 if TYPE_CHECKING:
     from bs1_base_motor import BaseDev
     from bs1_faulhaber import FH_Motor, FH_cmd, fh_baudrate, fh_timeout, fh_break_duration
-    from bs1_zaber import Zaber_Motor
-    from bs1_FHv3 import FH_Motor_v3
-    from bs1_maxon import MAXON_Motor
+    # from bs1_zaber import Zaber_Motor
+    # from bs1_FHv3 import FH_Motor_v3
+    # from bs1_maxon import MAXON_Motor
     from bs1_ni6002 import NI6002
-    from bs1_cam_modbus import Cam_modbus
+    # from bs1_cam_modbus import Cam_modbus
     from bs1_HAMEG import HMP_PS
     from bs1_DH_RB_modbus import DH_ROB_RGI_modbus
-    from bs1_phidget import PhidgetRELAY
-    from bs1_mecademic import robotMecademic
-    from bs1_meca500 import robotMeca500
+    # from bs1_phidget import PhidgetRELAY
+    # from bs1_mecademic import robotMecademic
+    # from bs1_meca500 import robotMeca500
     from bs1_marco_modbus import Marco_modbus
     from bs1_interlock import InterLock
     from bs1_io_control import IOcontrol
     from bs1_festo_modbus import Festo_Motor
     from bs1_sqlite import StatisticSQLite 
-    from bs1_jtse_serial import  JTSEcontrol
+    # from bs1_jtse_serial import  JTSEcontrol
 
 from bs1_utils import print_log, print_inf, print_err, print_DEBUG, exptTrace, s16, s32, void_f, \
                         assign_parm, get_parm  
@@ -62,7 +62,25 @@ print_DEBUG = void_f
 plcDataPTR = Enum('plcDataPTR', [('API', "API"), ('DeviceName', "DeviceName"), \
                            ('DeviceInfo', "DeviceInfo"), ('State', "State")])
 
-DevType = Enum("DevType", ["TIME_ROTATOR", "DIST_ROTATOR", "TROLLEY", "GRIPPER", "GRIPPERv3", "ZABER", "DAQ_NI", "HMP", "PHG", "CAM", "DH", "MCDMC", "MARCO", "INTERLOCK", "IOCONTROL", "JTSE", "DB", "PLCDEV"])
+class DevType(Enum):
+    TIME_ROTATOR = "SP"
+    DIST_ROTATOR = "RT"
+    TROLLEY = "TR"
+    GRIPPER = "OBSOLETE"            # replaced by GRIPPERv3
+    GRIPPERv3 = "GR"
+    ZABER = "ZB"
+    DAQ_NI = "DAQ_NI"
+    HMP = "HMP"
+    PHG = "PHG"
+    CAM = "CAM"
+    DH = "DH"
+    MCDMC = "MCDMC"
+    MARCO = "MARCO"
+    INTERLOCK = "INTERLOCK"
+    IOCONTROL = "IOCONTROL"
+    JTSE = "JTSE"
+    DB = "DB"
+    PLCDEV = "PLCDEV"
 
 
 ZABER_ID = 1027
@@ -159,6 +177,7 @@ class systemDevices:
                         print_log(f'PC platform detected in configuration file {self.__conf_file}')
                         self.__platform_devs = pcPlatformDevs(self.__conf_file, self.__params_file) 
         
+            print_log(f'Configured devices: {self.__platform_devs.getDevs()}')
 
         except Exception as ex:
             print_err(f'Error reading parameters file, exception = {ex}')
@@ -168,6 +187,7 @@ class systemDevices:
         try:
             # scan ports and add devices defined in the configuration file
             self.__platform_devs.loadConf(self)
+            print_log(f'System devices loaded: {self.__devs}')
         except Exception as ex:
             print_err(f'Error scanning ports and loading devices, exception = {ex}')
             exptTrace(ex)        
@@ -192,6 +212,15 @@ class systemDevices:
     def append(self, _devName:str, _dev:CDev):
         self[_devName] = _dev
 
+    def getParams(self) -> dict:
+        return self.__platform_devs.allParams
+    
+    def getConfDevs(self) -> dict:
+        return self.__platform_devs.getDevs()
+
+    def __repr__(self) -> str:
+        r_str = f'{self.__devs}'
+        return (r_str)
 
 class abstractPlatformDevs(ABC):
 
@@ -211,7 +240,7 @@ class abstractPlatformDevs(ABC):
         pass
     
     def __getitem__(self, _devType):
-        return None if _devType not in self.allDevs.keys() else self.allDevs[_devType]
+        return None if _devType not in list(self.allDevs.keys()) else self.allDevs[_devType]
     
     def __setitem__(self, _devType, _devList):
         raise Exception(f'Unsupported bracket notation ([]) operation')
@@ -235,7 +264,7 @@ class plcPlatformDevs(abstractPlatformDevs):
         try:
             with open(self.__config_file) as p_file:
                 doc = yaml.safe_load(p_file)
-                _keys = doc.keys()
+                _keys = list(doc.keys())
                 if 'ADS_NETID' in  _keys or 'REMOTE_IP' in _keys:
                     self.ADS_NETID = doc['ADS_NETID']
                     self.REMOTE_IP = doc['REMOTE_IP']
@@ -277,7 +306,7 @@ class plcPlatformDevs(abstractPlatformDevs):
                 _cdev = CDev(C_type=DevType.PLCDEV, C_port=None, c_id=None, \
                                                             c_serialN=None, c_dev=_plcDev, c_gui=_dev_idx+1)
 
-
+                _sysDevs[_dev_name] = _cdev
                 print_log(f'Added PLC device: {_cdev}')
             if _dev_idx == 0:
                 print_err(f'No devices found in PLC configuration')
@@ -494,16 +523,20 @@ class pcPlatformDevs(abstractPlatformDevs):
         
         self.__params_table:dict =  pcPlatformDevs.read_params(self.__params_file)  
                                                         # {devName: {parm1: value1, parm2: value2, ...}, ...}
+
+        self.allParams = self.__params_table
+                                                                
+        print_log(f'PC based devices operation. Load configuration from {self.__config_file} configuration file')
+        self.allDevs = pcPlatformDevs.read_configuration(self.__config_file)
         
 
     def loadConf(self, _sysDevs:systemDevices):
         
-        print_log(f'PC based devices operation. Load configuration from {self.__config_file} configuration file')
-       
-        self.allDevs = pcPlatformDevs.read_configuration(self.__config_file)
+        print_log(f'Scanning installed devices...')
         self.__addSerialDevs(_sysDevs)
         self.__addFHv3Devs(_sysDevs)
         self.__addMaxonDevs(_sysDevs)
+        self.__addFESTODevs(_sysDevs)
         self.__addDAQDevs(_sysDevs)
         self.__addIODevs(_sysDevs)
         self.__addPHGDevs(_sysDevs)
@@ -547,11 +580,12 @@ class pcPlatformDevs(abstractPlatformDevs):
                             print_err(f'No valid devices for dev class {_devices}. Removed')
                             _allDevs.pop(_devices)
                     else:
-                        _dev_re += fr'{pcPlatformDevs.devTypesTbl[_dev_class]}\d*'
+                        # _dev_re += fr'{pcPlatformDevs.devTypesTbl[_dev_class]}\d*'
+                        _dev_re = fr'{pcPlatformDevs.devTypesTbl[_dev_class]}\d*'
                         _dev_re_compiled = re.compile(_dev_re)
-                        for _dev in _devices.items():
+                        for _dev, _id in _devices.items():
                             if not _dev_re_compiled.match(_dev):
-                                print_err(f'Error. Wrong format dev name {_dev} in dev class {_devices}')
+                                print_err(f'Error. Wrong format dev name {_dev} in dev class {_devices}, id= {_id}, removed')
                                 _devices.pop(_dev)
                         if len(_devices) == 0:
                             print_err(f'No valid devices for dev class {_devices}. Removed')
@@ -606,12 +640,15 @@ class pcPlatformDevs(abstractPlatformDevs):
     JTSE
     '''
     def __addSerialDevs(self, _sysDevs:systemDevices):
+        from bs1_jtse_serial import  JTSEcontrol
+        from bs1_zaber import Zaber_Motor
+
         try:
 
             # Seial port devices: ZB, FAULHABER (TR, GR, SP), HMP, DH, JTSE
             serialDevsClasses = set(['ZB', 'TR', 'GR', 'SP', 'HMP', 'DH', 'JTSE'])
             faulhaberTypes = set([ 'TR', 'GR', 'SP'])
-            configuredDevs = set(self.allDevs.keys())
+            configuredDevs = set(list(self.allDevs.keys()))      # set of configured device types
 
             # if 'ZB'  not in configuredDevsList and 'TR' not in configuredDevsList and \
             #       'GR'  not in configuredDevsList and 'SP' not in configuredDevsList and \
@@ -637,7 +674,7 @@ class pcPlatformDevs(abstractPlatformDevs):
                         if _fhSN is not None:
                             print_log (f'Faulhaber device with S/N = {_fhSN} found on port {ps.device}')    
 
-                            if _fhSN in self.allDevs['TR'].values():
+                            if self['TR'] is not None and _fhSN in self.allDevs['TR'].values():
                                 _devName = getDevbySN(self.allDevs['TR'], _fhSN)
                                 if _devName is None:
                                     print_err(f'ERROR: Something went wrong while retriving Faulhaber TROLLEY dev name with S/N = {serN} ')
@@ -655,7 +692,7 @@ class pcPlatformDevs(abstractPlatformDevs):
                                 _sysDevs[_devName] = i_dev
                                 # devs.append(i_dev)
 
-                            elif _fhSN in self.allDevs['GR'].values():
+                            elif self['GR'] is not None and _fhSN in self.allDevs['GR'].values():
                                 _devName = getDevbySN(self.allDevs['GR'], _fhSN)
                                 if _devName is None:
                                     print_err(f'ERROR: Something went wrong while retriving Faulhaber GRIPPER dev name with S/N = {serN} ')
@@ -673,7 +710,7 @@ class pcPlatformDevs(abstractPlatformDevs):
                                 _sysDevs[_devName] = i_dev
                                 # devs.append(i_dev)
 
-                            elif _fhSN in self.allDevs['SP'].values():
+                            elif self['SP'] is not None and _fhSN in self.allDevs['SP'].values():
                                 _devName = getDevbySN(self.allDevs['SP'], _fhSN)
                                 if _devName is None:
                                     print_err(f'ERROR: Something went wrong while retriving Faulhaber SPINNER dev name with S/N = {serN} ')
@@ -708,7 +745,7 @@ class pcPlatformDevs(abstractPlatformDevs):
                     if ps.description.split()[0] == 'HAMEG':
                         print_log(f'Found HAMEG device on port {ps.device}')
                         i_dev =  None
-                        if len(self.allDevs['HMP'].values()) > 0:
+                        if  self['HMP'] is not None and len(self.allDevs['HMP'].values()) > 0:
                             try:
                                 for sn in enumerate(self.allDevs['HMP'].values()):
                                     # if ps.serial_number == sn:
@@ -732,7 +769,7 @@ class pcPlatformDevs(abstractPlatformDevs):
                         else:
                             print_log(f'No HAMEG devices configured in the system')
 
-                    elif (len(self.allDevs['DH'].values()) > 0) and (sn := DH_ROB_RGI_modbus.find_server(ps.device)) is not None:
+                    elif self['DH'] is not None and (len(self.allDevs['DH'].values()) > 0) and (sn := DH_ROB_RGI_modbus.find_server(ps.device)) is not None:
 
                         print_log(f'Trying add DH Robotics device on port {ps.device}, s/n = {sn}')
                         if not sn in self.allDevs['DH'].values():
@@ -753,7 +790,7 @@ class pcPlatformDevs(abstractPlatformDevs):
 
                     else:               # ZABER
                         try:
-                            if len(self.allDevs['ZB'].values()) > 0 and Zaber_Motor.init_devs(ps.device):        
+                            if self['ZB'] is not None and len(self.allDevs['ZB'].values()) > 0 and Zaber_Motor.init_devs(ps.device):        
                                                                                 # if ZABER devices are configured and initilized
                                 print_log(f'ZABER DEVICES on port {ps.device} have been initialized')
 
@@ -792,7 +829,7 @@ class pcPlatformDevs(abstractPlatformDevs):
                             print_log(f'There was error adding ZABER devices on port {ps.device}')
                             print_log(f"Exception: {ex}")
                             
-                if len(self.allDevs['JTSE'].values()) > 0 and isinstance(self.allDevs['JTSE'], dict):
+                if self['JTSE'] is not None and len(self.allDevs['JTSE'].values()) > 0 and isinstance(self.allDevs['JTSE'], dict):
                     devName = list(self.allDevs['JTSE'].keys())[0]
                     _the_first_device = list(self.allDevs['JTSE'].values())[0]
 
@@ -828,8 +865,10 @@ class pcPlatformDevs(abstractPlatformDevs):
 
 
     def __addFHv3Devs(self, _sysDevs:systemDevices):
+        from bs1_FHv3 import FH_Motor_v3
+
         FHv3Types = set([ 'TR', 'GR', 'SP', 'RT'])
-        configuredDevs = set(self.allDevs.keys())
+        configuredDevs = set(list(self.allDevs.keys()))
 
         if len(FHv3Types & configuredDevs) == 0:
             print_log(f'No Faulhaber v3 devices defined in the configuration')
@@ -854,22 +893,22 @@ class pcPlatformDevs(abstractPlatformDevs):
                 print_log (f'{ind} -> {devFHv3.devinfo}, s/n = {devFHv3.serialN}')
 
                 
-                if devFHv3.serialN in self.allDevs['RT'].values():
+                if self['RT'] is not None and devFHv3.serialN in self.allDevs['RT'].values():
                     devType = DevType.DIST_ROTATOR
                     devName = getDevbySN(self.allDevs['RT'], devFHv3.serialN)
                     guiIND = list(self.allDevs['RT'].keys()).index(devName)+1
                     
-                elif devFHv3.serialN in self.allDevs['SP'].values():
+                elif self['SP'] is not None and devFHv3.serialN in self.allDevs['SP'].values():
                     devType = DevType.TIME_ROTATOR
                     devName = getDevbySN(self.allDevs['SP'], devFHv3.serialN)
                     guiIND = list(self.allDevs['SP'].keys()).index(devName)+1
 
-                elif devFHv3.serialN in self.allDevs['GR'].values():
+                elif self['GR'] is not None and devFHv3.serialN in self.allDevs['GR'].values():
                     devType = DevType.GRIPPERv3
                     devName = getDevbySN(self.allDevs['GR'], devFHv3.serialN)
                     guiIND = list(self.allDevs['GR'].keys()).index(devName)+1
 
-                elif devFHv3.serialN in self.allDevs['TR'].values():
+                elif self['TR'] is not None and devFHv3.serialN in self.allDevs['TR'].values():
                     devType = DevType.TROLLEY
                     devName = getDevbySN(self.allDevs['TR'], devFHv3.serialN)
                     guiIND = list(self.allDevs['TR'].keys()).index(devName)+1
@@ -898,9 +937,10 @@ class pcPlatformDevs(abstractPlatformDevs):
         
     
     def __addMaxonDevs(self, _sysDevs:systemDevices):
+        from bs1_maxon import MAXON_Motor
 
         maxonTypes = set(['GR', 'RT'])
-        configuredDevs = set(self.allDevs.keys())
+        configuredDevs = set(list(self.allDevs.keys()))
 
         if len(maxonTypes & configuredDevs) == 0:
             print_log(f'No MAXON compitable devices defined in the configuration')
@@ -912,14 +952,15 @@ class pcPlatformDevs(abstractPlatformDevs):
             # mxnDev = bytes(self.__params_table['DEAFULT']['MAXON_DEV'], 'utf-8')
             # mxnIntfc = bytes(self.__params_table['DEAFULT']['MAXON_INTERFACE'], 'utf-8')
 
-            mxnDev = bytes(assign_parm('DEFAULT', self.__params_table['DEAFULT']['MAXON_DEV']), 'utf-8')
-            mxnIntfc = bytes(assign_parm('DEFAULT', self.__params_table['DEAFULT']['MAXON_INTERFACE']), 'utf-8')
+            mxnDev =  assign_parm('DEFAULT', self.__params_table,  'MAXON_DEV')
+            mxnIntfc =  assign_parm('DEFAULT', self.__params_table,  'MAXON_INTERFACE')
+            print_log(f'MAXON parameters: DEV={mxnDev}, INTF={mxnIntfc}')
             
             if mxnDev is None or mxnIntfc is None:
                 print_log(f'MAXON device type or interface is not correctly defined in the parameters table')
                 return
             
-            MAXONDevs = MAXON_Motor.init_devices(mxnDev, mxnIntfc)
+            MAXONDevs = MAXON_Motor.init_devices(bytes(mxnDev, 'utf-8'), bytes(mxnIntfc, 'utf-8'))
             print_log(f'MAXON devs - {MAXONDevs}')
 
             if MAXONDevs == None or len(MAXONDevs) == 0:
@@ -933,12 +974,12 @@ class pcPlatformDevs(abstractPlatformDevs):
                 devMAXON = MAXONDevs[ind]
                 print_log (f'{ind} -> {devMAXON}, s/n = {devMAXON.sn}')
 
-                if devMAXON.sn in self.allDevs['RT'].values():
+                if self['RT'] is not None and devMAXON.sn in self.allDevs['RT'].values():
                     devType = DevType.DIST_ROTATOR
                     devName = getDevbySN(self.allDevs['RT'], devMAXON.sn)
                     guiIND = list(self.allDevs['RT'].keys()).index(devName)+1
 
-                elif devMAXON.sn in self.allDevs['GR'].values():
+                elif self['GR'] is not None and devMAXON.sn in self.allDevs['GR'].values():
                     devType = DevType.GRIPPER
                     devName = getDevbySN(self.allDevs['GR'], devMAXON.sn)
                     guiIND = list(self.allDevs['GR'].keys()).index(devName)+1
@@ -969,7 +1010,7 @@ class pcPlatformDevs(abstractPlatformDevs):
     
     def __addDAQDevs(self, _sysDevs:systemDevices):
 
-        if 'NI' not in self.allDevs.keys():
+        if self['NI'] is None or 'NI' not in self.allDevs.keys():
             print_log(f'No NI DAQ devices defined in the configuration')
             return
         
@@ -998,19 +1039,21 @@ class pcPlatformDevs(abstractPlatformDevs):
 
 
     ##########################                
-
-                    print_log(f'Adding Interlock for NI DAQ{guiIND}')
-                    INTERLOCK = list(self.allDevs['INTERLOCK'].values()) 
-                    for interIndex, interDev in enumerate(INTERLOCK):
-                        if interDev == f'DAQ{guiIND}':
-                            iLockName = getDevbySN(self.allDevs['INTERLOCK'], interDev)
-                            dev_interlock = InterLock(iLockName, interDev, self.__params_table)
-                            i_dev = CDev(DevType.INTERLOCK, None, None, \
-                                    None, dev_interlock, interIndex+1)
-                            
-                            _sysDevs[iLockName] = i_dev
-                            # devs.append(intlck_dev)
-                            print_log(f'Interlock device {dev_interlock} assosiated with NI {i_dev} was added')
+                    if self['INTERLOCK'] is not None and f'DAQ{guiIND}' in list(self.allDevs['INTERLOCK'].values()):
+                        print_log(f'Adding Interlock for NI DAQ{guiIND}')
+                        INTERLOCK = list(self.allDevs['INTERLOCK'].values()) 
+                        for interIndex, interDev in enumerate(INTERLOCK):
+                            if interDev == f'DAQ{guiIND}':
+                                iLockName = getDevbySN(self.allDevs['INTERLOCK'], interDev)
+                                dev_interlock = InterLock(iLockName, interDev, self.__params_table)
+                                i_dev = CDev(DevType.INTERLOCK, None, None, \
+                                        None, dev_interlock, interIndex+1)
+                                
+                                _sysDevs[iLockName] = i_dev
+                                # devs.append(intlck_dev)
+                                print_log(f'Interlock device {dev_interlock} assosiated with NI {i_dev} was added')
+                    else:
+                        print_log(f'No Interlock associated with NI DAQ{guiIND} is defined in the configuration')
 
     ##########################                
                 else:
@@ -1024,7 +1067,8 @@ class pcPlatformDevs(abstractPlatformDevs):
 
     def __addFESTODevs(self, _sysDevs:systemDevices):
 
-        if 'ZABER' not in self.allDevs.keys():
+        if self['ZABER'] is None :              # FESTO devices are in the stepper group 
+                                                  # (use ZABER key since they replace ZABER stepper actuators)
             print_log(f'No stepper group including FESTO devices defined in the configuration')
             return
 
@@ -1062,6 +1106,10 @@ class pcPlatformDevs(abstractPlatformDevs):
 # BUGBUG 
 
     def __addIODevs(self, _sysDevs:systemDevices):
+        if self['IOCONTROL'] is None:
+            print_log(f'No IO control (IOCONTROL) devices defined in the configuration')
+            return
+        
         io_dev_dict = self.allDevs['IOCONTROL']      # {dev_name: 'provider, port.line, NO/NC', ...}
     
         if len(io_dev_dict) == 0:
@@ -1111,6 +1159,12 @@ class pcPlatformDevs(abstractPlatformDevs):
     
     
     def __addPHGDevs(self, _sysDevs:systemDevices):
+        from bs1_phidget import PhidgetRELAY
+    
+        if self['PHG'] is None:
+            print_log(f'No Phidgets (PHG) devices defined in the configuration')
+            return
+        
 
         phg_dev_dict = self.allDevs['PHG']      # {dev_name: 'sn/channel, type, TRUE/FALSE', ...}
         if len(phg_dev_dict) == 0:
@@ -1175,9 +1229,12 @@ class pcPlatformDevs(abstractPlatformDevs):
 
 
     def __addCamDevs(self, _sysDevs:systemDevices):
-        if 'CAM' not in self.allDevs.keys():
+        from bs1_cam_modbus import Cam_modbus
+
+        if self['CAM'] is None:
             print_log(f'No ModBus Camera devices defined in the configuration')
             return
+        
         CAM = self.allDevs['CAM']     # IP:port dictionary
 
         print_log('Looking for ModBus servers / Camera in {CAM}')
@@ -1212,8 +1269,10 @@ class pcPlatformDevs(abstractPlatformDevs):
 
 
     def __addMecademicDevs(self, _sysDevs:systemDevices):
+        from bs1_mecademic import robotMecademic
+        from bs1_meca500 import robotMeca500
 
-        if 'MCDMC' not in self.allDevs.keys():
+        if self['MCDMC'] is None:
             print_log(f'No Mecademic / Asyril  devices defined in the configuration')
             return
 
@@ -1276,7 +1335,7 @@ class pcPlatformDevs(abstractPlatformDevs):
 
         
     def __addMarcoDevs(self, _sysDevs:systemDevices):  
-        if 'MARCO' not in self.allDevs.keys():
+        if 'MARCO' not in list(self.allDevs.keys()):
             print_log(f'No ModBus Marco devices defined in the configuration')
             return
         MARCO = self.allDevs['MARCO']     # {devName: 'IP:port'} dictionary  
@@ -2090,6 +2149,7 @@ if __name__ == "__main__":
     # sys.exit()
 
     a = systemDevices()
+    print_log(f'System devices: {a}')
     sys.exit()
     
     devs = port_scan()

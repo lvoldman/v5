@@ -118,15 +118,14 @@ class JTSEcontrol:
                 _res = _port
                 return _res
         
-            if _ser is not None:
-                _ser.close
-                _ser.__del__()
-            
-    
         except Exception as ex:
             exptTrace(ex)
             
             
+        if _ser is not None:
+            _ser.close
+            _ser.__del__()       
+        
         return None
                          
     @staticmethod

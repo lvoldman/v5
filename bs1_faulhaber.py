@@ -14,6 +14,7 @@ import sys, os, logging
 import time
 import threading
 import ctypes
+from serial.tools.list_ports_common import ListPortInfo
 from threading import Lock
 from inputimeout  import inputimeout , TimeoutOccurred
 from queue import Queue 
@@ -336,7 +337,7 @@ class FH_Motor:
 
 
     @staticmethod
-    def recognizeDev(ps:serial.tools.list_ports.ListPortInfo, dev_name:str = None )->str:
+    def recognizeDev(ps:ListPortInfo, dev_name:str = None )->str:
         _res:str = None
         _ser = None
         serN = None

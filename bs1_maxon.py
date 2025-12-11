@@ -605,18 +605,22 @@ class MAXON_Motor:
     @staticmethod
     def init_devices(mxnDevice=b'EPOS4', mxnInterface=b'USB'):
 
+        try:
+            init_lock = Lock()
 
-        init_lock = Lock()
+            cdll.LoadLibrary(MAXON_Motor.path)              # have no idea why but Maxon wants it
+            MAXON_Motor.epos = CDLL(MAXON_Motor.path)
+            print_inf(f'Looking for maxon devices, mxnDevice = {mxnDevice}, mxnInterface = {mxnInterface}')
+            MAXON_Motor.enum_devs(mxnDevice, mxnInterface)
 
-        cdll.LoadLibrary(MAXON_Motor.path)              # have no idea why but Maxon wants it
-        MAXON_Motor.epos = CDLL(MAXON_Motor.path)
-        print_inf(f'Looking for maxon devices, mxnDevice = {mxnDevice}, mxnInterface = {mxnInterface}')
-        MAXON_Motor.enum_devs(mxnDevice, mxnInterface)
-
-        if len(MAXON_Motor.devices) == 0:
-            print_inf("No MAXON devices detected in the system")
+            if len(MAXON_Motor.devices) == 0:
+                print_inf("No MAXON devices detected in the system")
+                MAXON_Motor.devices = None
+                return None
+        except Exception as ex:
+            exptTrace(ex)
+            print_err(f"Error initiating MAXON devices. Exception: {ex} of type: {type(ex)}")
             MAXON_Motor.devices = None
-            return None
 
         
         return MAXON_Motor.devices

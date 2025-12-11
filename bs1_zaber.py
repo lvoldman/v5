@@ -227,11 +227,13 @@ class Zaber_Motor:
                 print_log (f'Zaber initiaton succeded on port {z_port}, Found {len(Zaber_Motor.device_port_list[z_port]["device_list"])}')
                 # print_log(f'of {Zaber_Motor.device_port_list[z_port]["connection"].renumber_devices()} devices')
                 return True
+            
         except Exception as ex:
             print_log(f"Error initiatioin Zaber devices. Exception: {ex} of type: {type(ex)}, Port={z_port}")
             if z_port in Zaber_Motor.device_port_list:
                 Zaber_Motor.device_port_list[z_port]["connection"] = None
-            return False
+
+        return False
 
   
 

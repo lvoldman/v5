@@ -25,10 +25,10 @@ import bs1_status_monitor as sm
 import bs1_mecademic as mc
 
 
-from bs2_config import  CDev, gif103, read_params, get_dev, getDevsList, load_dev_config, DevType, systemDevices
+from bs2_config import  CDev, gif103, read_params, get_dev, DevType, systemDevices
 
 
-# from bs1_config import port_scan, CDev, gif103, read_params, get_dev, getDevsList, load_dev_config
+# from bs1_config import port_scan, CDev, gif103, read_params, get_dev, load_dev_config
 from bs1_faulhaber import FH_Motor
 from bs1_zaber import Zaber_Motor
 from bs1_script import Tbl, Log_tbl, groups, GetSubScript, LoadScriptFile, ClearLog, SaveLog, GetSubScriptDict
@@ -213,7 +213,7 @@ def activationControl (window, type, disableInd = False, ledColor = 'green', ind
     #         SetLED (window, f'_hotair_', ledColor)
     #         window[f'HOTAIR-START'].update(disabled = disableInd)
     #         window[f'HOTAIR-STOP'].update(disabled = disableInd)
-    elif type == DevType.DAQ-NI:
+    elif type == DevType.DAQ_NI:
         pass                                                                # no GUI fot NI
     elif  type == DevType.PHG:
         if f'_phg_{index}_' in window.AllKeysDict: 
@@ -412,7 +412,7 @@ def initGUIDevs(window, devs_list:list[CDev]):
                 window[f'-TIME_ROTATOR-TITLE-'].update(_title)
 
         elif m_dev.C_type == DevType.GRIPPER:
-            ActivateMotorControl(window, fDevType.GRIPPER, m_dev.c_gui)
+            ActivateMotorControl(window, DevType.GRIPPER, m_dev.c_gui)
             window[f'-{m_dev.c_gui}-GRIPPER-RPM-'].update(value = m_dev.dev_mDC.el_voltage)
             window[f'-{m_dev.c_gui}-GRIPPER-CURR-'].update(value = m_dev.dev_mDC.el_current_limit)
 
@@ -1077,10 +1077,15 @@ def  proc_tuning(window, devs_list, motor, dist, _abs_moving = False)-> pm.Worki
 
 
 # ===  Initiation GUI topology, etc
-def InitGUI(parms:dict):
-    load_dev_config()
-    confDevs = getDevsList()
+def InitGUI(sysDevs:systemDevices):
+    # load_dev_config()
+    # confDevs = getDevsList()
+    # confDevs = systemDevices
+    parms:dict = sysDevs.getParams()
+    confDevs:dict = sysDevs.getConfDevs()    # list of configured devices
+
     print_log (f'DevList = \n{confDevs}')
+    print_log (f'Params = \n{parms}')
 
     global zaber_motors 
     global gripper_motors 
@@ -1096,26 +1101,25 @@ def InitGUI(parms:dict):
     global intrlck 
     global trolley_motors
 
-
-    zaber_motors = len(confDevs[DevType.ZABER])
-    gripper_motors = len(confDevs[DevType.GRIPPERv3])
-    distance_rotators = len(confDevs[DevType.DIST_ROTATOR])
-    time_rotators = len(confDevs[DevType.TIME_ROTATOR])
-    dh_grippers = len(confDevs[DevType.DH])
-    cams = len(confDevs[DevType.CAM])
-    daq = len(confDevs[DevType.DAQ-NI])
-    hmp = len(confDevs[DevType.HMP])
-    phg_dict:dict = confDevs[DevType.PHG]
-    trolley_motors = len(confDevs[DevType.TROLLEY])
-    phg = len(phg_dict)
-    mcdmc = len(confDevs[DevType.MCDMC])
-    marco = len(confDevs[DevType.MARCO])
-    intrlck = len(confDevs[DevType.INTERLOCK])
-    jbc = len(confDevs[DevType.JTSE])
+    print_log(f'Initializing GUI layout... Configured devices = {confDevs}')
+    zaber_motors = 0 if DevType.ZABER.value not in confDevs.keys() else len(confDevs[DevType.ZABER.value])
+    gripper_motors = 0 if DevType.GRIPPERv3.value not in confDevs.keys() else len(confDevs[DevType.GRIPPERv3.value])
+    distance_rotators = 0 if DevType.DIST_ROTATOR.value not in confDevs.keys() else len(confDevs[DevType.DIST_ROTATOR.value])
+    time_rotators = 0 if DevType.TIME_ROTATOR.value not in confDevs.keys() else len(confDevs[DevType.TIME_ROTATOR.value])
+    dh_grippers = 0 if DevType.DH.value not in confDevs.keys() else len(confDevs[DevType.DH.value])
+    cams = 0 if DevType.CAM.value not in confDevs.keys() else len(confDevs[DevType.CAM.value])
+    daq = 0 if DevType.DAQ_NI.value not in confDevs.keys() else len(confDevs[DevType.DAQ_NI.value])
+    hmp = 0 if DevType.HMP.value not in confDevs.keys() else len(confDevs[DevType.HMP.value])
+    trolley_motors = 0 if DevType.TROLLEY.value not in confDevs.keys() else len(confDevs[DevType.TROLLEY.value])
+    phg = 0 if DevType.PHG.value not in confDevs.keys() else len(confDevs[DevType.PHG.value])
+    mcdmc = 0 if DevType.MCDMC.value not in confDevs.keys() else len(confDevs[DevType.MCDMC.value])
+    marco = 0 if DevType.MARCO.value not in confDevs.keys() else len(confDevs[DevType.MARCO.value])
+    intrlck = 0 if DevType.INTERLOCK.value not in confDevs.keys() else len(confDevs[DevType.INTERLOCK.value])
+    jbc = 0 if DevType.JTSE.value not in confDevs.keys() else len(confDevs[DevType.JTSE.value])
     
     welder =  hotair = lights = dispencer_uv = False
 
-    phg_keys = list(phg_dict.keys())
+    # phg_keys = list(phg_dict.keys())
 
     # print_log(f'PHG devs (keys) = {phg_keys}')
 
@@ -1213,14 +1217,15 @@ def InitGUI(parms:dict):
     #                     sg.OptionMenu(values=('SC 0', 'SC 1', 'SC 2', 'SC 3'), default_value = 'SC 0',  key='-SELECTOR-'), LEDIndicator('_trigger_'),
     #                     sg.Push()]]
     # else:
-    if 'PHG' in parms.keys():
-        print_log(f'PHG devices in params: {parms["PHG"]} (len = {len(parms["PHG"])}) <<>> in config: {phg_dict} (len={len(phg_dict)}) ')
+    if DevType.PHG.value in parms.keys():
+        print_log(f'PHG devices in params: {parms[DevType.PHG.value]} (len = {len(parms[DevType.PHG.value])}) <<>> in config: {confDevs[DevType.PHG.value]} (len = {len(confDevs[DevType.PHG.value])})')
     
     phg_toggle = list()
     phg_trigger = list()
     phg_onoff =  list()
     _index = 0
-    for _key, _value in phg_dict.items():
+    for _key, _value in confDevs[DevType.PHG.value].items():
+        print_log(f'Processing PHG device: {_key}:{_value}')
         _dev_name = _key
         _parsed_phg = _value.split(',')
         # if len(_parsed_phg) > 2 and (_parsed_phg[2].strip().upper() == 'FALSE' or _parsed_phg[2] == False):
@@ -1697,7 +1702,7 @@ def formFillProc(event, values, window, realNum = False, positiveNum = True, def
 
 #========================= GUI code starts here =============================
 
-def StartGUI (layout):
+def StartGUI (layout, sysDevs:systemDevices)->sg.Window:
     window = sg.Window('Dashboard', layout, margins=(0,0), background_color=BORDER_COLOR,  \
                     # no_titlebar=False, resizable=False, right_click_menu=sg.MENU_RIGHT_CLICK_EDITME_VER_LOC_EXIT, \
                     no_titlebar=False, resizable=True, right_click_menu=CUSTOM_MENU_RIGHT_CLICK_VER_LOC_EXIT, \
@@ -1758,7 +1763,7 @@ def _stopProc(scriptQ:Queue, eventQ:Queue, gui_task_list:list):
         tsk.EmergencyStop()
 
 
-def workingCycle (window, parms:dict):
+def workingCycle (window, sysDevs:systemDevices):
 
     # global emergency_stop_pressed
 
@@ -2178,7 +2183,7 @@ def workingCycle (window, parms:dict):
         elif event == 'Open File':
             # _script_file_name = LoadScriptFile(parms)
             
-            _script_file_name = LoadScriptFile(parms_table)
+            _script_file_name = LoadScriptFile(sysDevs=sysDevs)
 
             if _script_file_name is not None:
                 window[f'-SCRIPT_NAME-'].update(_script_file_name) 
@@ -3283,9 +3288,11 @@ if __name__ == "__main__":
             print_DEBUG = print_log
 
     print_log('Starting here')
-    parms:dict =  read_params()
-    layout = InitGUI(parms)
-    window = StartGUI(layout)
-    workingCycle(window,  parms)
+    sysDevs = systemDevices()
+    parms:dict = sysDevs.getParams()
+
+    layout = InitGUI(sysDevs)
+    window = StartGUI(layout, sysDevs)
+    workingCycle(window,  sysDevs)
     print_inf(f'Working cycle DONE')
     sys.exit()

@@ -41,11 +41,13 @@ PLC_TYPE_MAP = {
 @dataclass
 class symbolsADS:           # ADS symbols used in PLC configuration w/default values
     _max_num_of_devs:str = 'G_Constant.MaxNumOfDrivers'
-    _dev_array_str:str = 'G_System.fbExternalAPI.arDeviceInfo'
+    # _dev_array_str:str = 'G_System.fbExternalAPI.arDeviceInfo'
     _num_of_devices:str = 'G_System.fbExternalAPI.stDriverPool.NumberOfDriversInPool'
     _max_number_of_runners:str = 'G_System.fbExternalAPI.const_MaxNumOfExecutor'
     _runner_array_str:str = 'G_System.fbExternalAPI.fbExternalRunner'
-    _device_access:str = 'G_System.fbExternalAPI.stDriverPool.DriverPool'
+    _device_access:str = 'G_System.fbExternalAPI.stDriverPool.DriverPool'  
+                                    # API: G_System.fbExternalAPI.stDriverPool.DriverPool[<index>]._API
+    
 
 pick_method = Enum("pick_method", ["random", "up_end", "low_end"])
 
@@ -404,7 +406,7 @@ if __name__ == '__main__':
     # _name = SYMBOL_GLOBAL_NAME+'.'+SYMBOL_NAME_INT
     # _name = SYMBOL_GLOBAL_NAME+'.ari'
     # _name = SYMBOL_GLOBAL_NAME+'.arst'
-    _name = 'G_System.fbExternalAPI.arDeviceInfo[1].DeviceName' 
+    _name = f'{symbolsADS._device_access}[1]._instanceName'   # 
 
     _str_def = (
         (SYMBOL_NAME_BOOL, pyads.PLCTYPE_BOOL, 1),
@@ -447,21 +449,21 @@ if __name__ == '__main__':
     # sys.exit()
 
     for i, _ in enumerate(range(_num_of_devs)):
-        _symb_dev_name = f'G_System.fbExternalAPI.arDeviceInfo[{i+1}].DeviceName'
+        _symb_dev_name = f'{symbolsADS._device_access}[{i+1}]._instanceName'
         _dev_name = plc.read_by_name(_symb_dev_name)
         if _dev_name.strip() == '':
             break
-        _sym_dev = f'G_System.fbExternalAPI.arDeviceInfo[{i+1}].API'
+        _sym_dev = f'{symbolsADS._device_access}[{i+1}]._API'
         # _dev_API = plc.read_by_name( {f'G_System.fbExternalAPI.arDeviceInfo[{i+1}].API'})
 
         _dev_API = plc.read_by_name( _sym_dev,  pyads.PLCTYPE_BYTE * 4000 )
         cut_API = _dev_API[:_dev_API.index(0)]  # cut zero bytes
 
 
-        _dev_info = f'G_System.fbExternalAPI.arDeviceInfo[{i+1}].DeviceInfo'
+        _dev_info = f'{symbolsADS._device_access}[{i+1}]._instanceInfo'
         _dev_INFO = plc.read_by_name( _dev_info,  pyads.PLCTYPE_STRING * 1024 )
 
-        _sym_state = f'G_System.fbExternalAPI.arDeviceInfo[{i+1}].State'
+        _sym_state = f'{symbolsADS._device_access}[{i+1}].eState'
         _dev_STATE = plc.read_by_name( _sym_state,  pyads.PLCTYPE_INT )
 
         # print(f'Device[{i+1}]({len(_dev_API)} bytes) API={"".join(map(chr, _dev_API)) }  ')

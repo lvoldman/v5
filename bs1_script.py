@@ -16,7 +16,7 @@ from typing import List
 import os
 
 
-from bs2_config import getDevsList, DevType
+from bs2_config import  DevType, systemDevices
 from bs1_utils import print_log, print_inf, print_err, print_DEBUG, exptTrace, s16, s32, void_f
 # print_DEBUG = void_f
 
@@ -42,7 +42,10 @@ headings = [['#'],['Dev'], ['Cmd']]  # colums titels
 #BUGBUGBUG
 
 
-def validate_cmd(dev, cmd, parms:dict):                             # validate command to be run
+def validate_cmd(dev, cmd, sysDevs: systemDevices):
+    parms:dict = sysDevs.getParams()
+    _devList:dict = sysDevs.getConfDevs()  # get configured devices (in config file, not really appeared in the system)
+                                 # validate command to be run
     print_log (f'dev = {dev}, cmd = {cmd}')
     try:
 
@@ -155,7 +158,6 @@ def validate_cmd(dev, cmd, parms:dict):                             # validate c
                 print_err (f' Invalid PHG cmd - {cmd}')
                 return False
             
-            _devList:dict = getDevsList()
             _phg_devs_list = _devList[DevType.PHG]
             _phg_dev = cmd.split(' ')[0].strip()
 
@@ -172,7 +174,6 @@ def validate_cmd(dev, cmd, parms:dict):                             # validate c
                 print_err (f' Invalid PHG_ cmd - {cmd}')
                 return False
             
-            _devList:dict = getDevsList()
             _phg_devs_list = _devList[DevType.PHG]
             _phg_dev = cmd.split(' ')[0].strip()
 
@@ -451,7 +452,7 @@ def scriptFormater(subScript) -> dict:
     return new_dict 
 
 
-def ymlPars(CmdScript:dict, parms:dict, group:List=None, line:int = 0, group_index:int = 0, cmdStr:str = str()):
+def ymlPars(CmdScript:dict, sysDevs:systemDevices, group:List=None, line:int = 0, group_index:int = 0, cmdStr:str = str()):
 
     global new_colors, new_script, groups
     try:
@@ -497,14 +498,14 @@ def ymlPars(CmdScript:dict, parms:dict, group:List=None, line:int = 0, group_ind
 
                 if isinstance(commands[device], dict):
                     print_DEBUG(f'Going next level with {dict([(device, commands[device])])} ')
-                    ymlPars(CmdScript=dict([(device, commands[device])]), parms = parms, group=group, line=line, \
+                    ymlPars(CmdScript=dict([(device, commands[device])]), sysDevs=sysDevs, group=group, line=line, \
                             group_index=group_index, cmdStr=leadColumn)
                     continue
                 
                 row.append(device)
                 single_cmd = commands[device]
 
-                if not validate_cmd(device, single_cmd if type(single_cmd) == str else str(single_cmd), parms):
+                if not validate_cmd(device, single_cmd if type(single_cmd) == str else str(single_cmd), sysDevs):
                     raise Exception(f'Script error. Group = {group_n}, Device= {device} ')
                 
                 if isinstance(single_cmd, str):
@@ -604,7 +605,7 @@ def buildScriptTable(CmdScript:dict):
 
     pass
 
-def load_embeded_script(filename, parms:dict)->bool:
+def load_embeded_script(filename, sysDevs:systemDevices)->bool:
     global LoadedScript
     global new_colors, new_script, groups
 
@@ -630,7 +631,7 @@ def load_embeded_script(filename, parms:dict)->bool:
 
             print_DEBUG(f'LoadedScript == doc = {LoadedScript == doc}')
 
-            ymlPars(LoadedScript, parms)
+            ymlPars(LoadedScript, sysDevs=sysDevs)
 
             buildScriptTable(LoadedScript)
  
@@ -867,7 +868,7 @@ def GetSubScript(window, event, values, ind = None)->List[str]:
     # gv = window['-TABLE-'].get()
     return subscript
 
-def LoadScriptFile(parms:dict):
+def LoadScriptFile(sysDevs:systemDevices):
      
     print_log("[LOG] Clicked Open File!")
     folder_or_file = sg.popup_get_file('Choose your file', keep_on_top=True, 
@@ -875,7 +876,7 @@ def LoadScriptFile(parms:dict):
     print_log("[LOG] User chose file: " + str(folder_or_file))
     if folder_or_file:
         # load_script(folder_or_file)
-        _res = load_embeded_script((folder_or_file), parms)
+        _res = load_embeded_script((folder_or_file), sysDevs)
         if _res:
             file_name = os.path.basename(folder_or_file)
             return  str(file_name)
@@ -954,9 +955,9 @@ Tbl = sg.Table(values=data[0:][:], headings=headings, max_col_width=55,
 if __name__ == "__main__":
 
     from threading import  Thread
-    from bs1_config import read_params
-
-    parms:dict =  read_params()
+    from bs2_config import systemDevices
+    sysDev = systemDevices()
+    parms:dict =  sysDev.getParams()
     
     # ------ Window Layout ------
     layout = [[Tbl],
@@ -1063,7 +1064,7 @@ if __name__ == "__main__":
             print_log(f'Load operation: [event={event}] {_sub}')
 
         elif event == 'Open File':
-            LoadScriptFile(parms)
+            LoadScriptFile(sysDevs)
             window.refresh()
             print_log(f'Script = {LoadedScript}')
             print_log(f'Values = {LoadedScript.values()}')
