@@ -65,7 +65,8 @@ argsType = namedtuple("argsType",  argsTypeFields, defaults=[None,] * len(argsTy
 class CmdObj:
     device:CDev = None          # device to perate
     cmd:OpType = None           # command to run
-    args:argsType = None        # parameters for cms (position, time, etc)      
+    args:argsType = None        # parameters for cms (position, time, etc)     
+
     @property
     def operation(self):        # cmd text fore unparsed_cmd
         return self.args.cmd_txt
@@ -350,9 +351,12 @@ class WorkingTask:                                  # WorkingTask - self-recursi
     # "pickup", "insert_pcb", "put_pcb", set_program", "single_shot", "add_db","play_media"]
     # runType = single, task type of CmdObj
     # sg.Window is for events communication (i.e. 'Stop' event)
-    def __runCmd(self, window:sg.Window = None):             
+    # Obsolete, use __runDevCmd instead
+    def __runCmd(self, window:sg.Window = None)-> tuple[bool, bool]:             
+                                        # run command for single device
+                                        # returns (opResult, toBlock) - operation result and toBlock flag
 
-        wCmd:CmdObj = self.__sub_tasks[0]
+        wCmd:CmdObj = self.__sub_tasks[0]         # single command
         print_log(f'Proceeding cmd = {wCmd}')
 
         if wCmd.device:                          
@@ -1466,21 +1470,27 @@ def Create_Single_Task(cmd:str, devs_list:list[CDev]) -> WorkingTask:
 # creating  WorkingTask for single device with multiple cmds (script cmd)
 # similar to Create_Single_Task but does not parsse the command (cmd will be parsed inside the device class)
 def Create_Dev_Single_Task(cmd:str, _sysDevs: systemDevices) -> WorkingTask: 
+    try:
 
-    print_log(f'Creating "Device Single Task" from cmd = {cmd}, device = {cmd[1]} ')
+        print_log(f'Creating "Device Single Task" from cmd = {cmd}, device = {cmd[1]} ')
 
-    device:CDev = _sysDevs[cmd[1]]
+        device:CDev = _sysDevs[cmd[1]] 
 
-    if device == None:
-        print_err(f"No active device {cmd[1]} found for cmd: {cmd}")
-        # return WorkingTask()                                # return empty task
-        return None                                # return None
-        
-    print_log(f'Resolved device = {device}')
+        if device == None and not (cmd[1] == 'SYS' or cmd[1] == 'CMNT' or cmd[1] == 'NOP'):
+                        # device for cmd is not active in the system and not a cmd that does not require device
+            raise(f"No active device {cmd[1]} found for cmd: {cmd}")
+            # return WorkingTask()                                # return empty task
+            
+        print_log(f'Resolved device = {device} for cmd = {cmd}')
 
-    wCmd = None
+        wCmd = None
 
-    wCmd = CmdObj(device=device, cmd=OpType.unparsed_cmd, args=argsType(cmd_txt=cmd[2:]))
+        wCmd = CmdObj(device=device, cmd=OpType.unparsed_cmd, args=argsType(cmd_txt=cmd[2:]))
+
+    except KeyError as e:
+        print_err(f'-ERROR- Cant create Single Task for device {cmd[1]} /  active device {cmd[1]} not found in system devices for cmd: {cmd}')
+        exptTrace(e)
+        return None
         
     return WorkingTask(taskList = wCmd, sType=RunType.single)
 

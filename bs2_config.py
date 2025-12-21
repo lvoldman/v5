@@ -24,6 +24,7 @@ import datetime, re
 
 from bs1_ads import commADS, symbolsADS
 from bs1_plc_dev import PLCDev
+from bs1_sysdev import sysDevice
 
 if TYPE_CHECKING:
     from bs1_base_motor import BaseDev
@@ -155,6 +156,13 @@ class CDev:
 
 
 
+# class systemDevices - main class for managing system devices
+#   - reads configuration file (serials.yml)
+#   - scans ports and connects to devices
+# __devs: dict of all available devices  {dev_name1: CDev1, dev_name2: CDev2, ...} where 
+#         * dev_name is defined in the configuration file / got from PLC
+#         * CDev is the device data class
+# __platform_devs - platform (PC/PLC) specific class derived from abstractPlatformDevs
 
 class systemDevices:
     def __init__(self, _conf_file:str='serials.yml', _params_file:str='params.yml'):
@@ -185,6 +193,8 @@ class systemDevices:
             raise ex
         
         try:
+            self.__devs['SYS'] = CDev('SYS', None, None, None, sysDevice())
+                                                        # System device always exists and available
             # scan ports and add devices defined in the configuration file
             self.__platform_devs.loadConf(self)
             print_log(f'System devices loaded: {self.__devs}')
