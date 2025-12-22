@@ -18,8 +18,8 @@ from bs1_utils import print_log, print_inf, print_err, print_DEBUG, exptTrace, s
 
 class sysDevice(BaseDev):
     
-    def __init__(self):
-        super().__init__('SYS')
+    def __init__(self, dName = 'SYS'):
+        super().__init__(dName)
 
     def devQuery(self, query:str, timeout:float=0)-> str:
                                                         # no query avilable for system device

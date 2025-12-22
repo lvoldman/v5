@@ -719,26 +719,19 @@ class WorkingTask:                                  # WorkingTask - self-recursi
             toBlock:bool = True 
             opResult:bool = True
 
-            if wCmd.cmd == OpType.halt:
-                toBlock = False
-                opResult = False
-                if window:
-                    window.write_event_value(f'Stop', None)                           # Emergency stop event
-                    opResult = True
-                else:
-                    raise Exception (f'ERROR- HALT cmd event could not be sent  to main WINDOW [at script].')
+                           #   device operations 
+            if wCmd.device is None:     
+                return False, True                      # no device assigned to command (i.e NOP or CMNT command)
+                                
+            # runner = wCmd.device.loadDeviceOp(wCmd)
+            # toBlock, opResult = wCmd.device.__class__.runDevicesOp(runner)          # run the loaded commands
+            toBlock, opResult = wCmd.device.cDevice.operateDevice(command=wCmd, window=window)          # run the loaded commands
 
-            else:               #   device operations 
-                if wCmd.device:                          
-                    runner= wCmd.device.loadDeviceOp(wCmd)
-                    toBlock, opResult = wCmd.device.__class__.runDevicesOp(runner)          # run the loaded commands
+            print_log(f'Device command loaded and run at device {wCmd.device.get_device().devName}, runner = {runner}')
 
-                    print_log(f'Device command loaded and run at device {wCmd.device.get_device().devName}, runner = {runner}')
-                else:
-                    print_err(f'ERROR- No device defined fot smd = {wCmd}')
-                    return False, False
         
         except Exception as ex:
+            print_err(f'Exception running device command {wCmd}: {ex}')
             exptTrace(ex)
             return False, False
 
@@ -951,50 +944,56 @@ def BuildComplexWorkingClass(script:dict, _sysDevs:systemDevices, key , stepTask
     tempTaskList: list[WorkingTask] = list()
 
     print_DEBUG(f'Working on script = {script} key = {key}')
-    for group_n, cmd in script.items():
-        print_DEBUG(f'Procceeding cmd = {cmd} group_n = {group_n}')
+    try:
+        for group_n, cmd in script.items():
+            print_DEBUG(f'Procceeding cmd = {cmd} group_n = {group_n}')
 
-        if isinstance(cmd, dict):     # complex command (sub-script) / cmd block, nested script
-            print_DEBUG(f'Creating complex task for cmd = {cmd}')
-            # woT:WorkingTask = BuildComplexWorkingClass(cmd, devs_list, group_n, stepTask)
-            woT:WorkingTask = BuildComplexWorkingClass(cmd, _sysDevs, group_n, stepTask)
-            if woT == None:
-                return None
-            else:
-                tempTaskList.append(woT)
-        else:                        # single command    
-            _cmd =list(" ")
-            _cmd.append(group_n) 
-            if isinstance(cmd, str):    
-                _cmd.extend(cmd.split())
-            elif isinstance(cmd, bool):                   # bool
-                 _cmd.append(cmd)
-            else:
-                print_err(f'Unexpected cmd {cmd} type: {type(cmd)} ')
-                return None
+            if isinstance(cmd, dict):     # complex command (sub-script) / cmd block, nested script
+                print_DEBUG(f'Creating complex task for cmd = {cmd}')
+                # woT:WorkingTask = BuildComplexWorkingClass(cmd, devs_list, group_n, stepTask)
+                woT:WorkingTask = BuildComplexWorkingClass(cmd, _sysDevs, group_n, stepTask)
+                if woT == None:
+                    return None
+                else:
+                    tempTaskList.append(woT)
+            else:                        # single command    
+                _cmd =list(" ")
+                _cmd.append(group_n) 
+                if isinstance(cmd, str):    
+                    _cmd.extend(cmd.split())
+                elif isinstance(cmd, bool):                   # bool
+                    _cmd.append(cmd)
+                else:
+                    print_err(f'Unexpected cmd {cmd} type: {type(cmd)} ')
+                    return None
 
 
-            print_DEBUG(f'Creating single task for cmd = {_cmd}')
-            # wTask:WorkingTask = Create_Single_Task(_cmd, devs_list) 
-            wTask:WorkingTask = Create_Dev_Single_Task(_cmd, _sysDevs)
-            print_DEBUG(f'Single_Task = {wTask}')
-            if wTask is not None:     
-                tempTaskList.append(wTask)
-            else:    
-                print_err(f'Dev {_cmd[1]} at script cmd {_cmd} is not active in the system')                               # device for cmd is not active in the system 
-                return None
-    # BUGBUG: code for simultaneous runner add HERE
-    if key[-1] == 'P':
-        sType = RunType.parallel
-    elif key[-1] == 'S':
-        sType = RunType.serial
-    else:
-        print_err(f'--WARNING Commands combination [{group_n}] that is not predefined group is treated as paralel')
-        sType = RunType.parallel
-    
-    wT = WorkingTask(tempTaskList, sType=sType, stepTask=stepTask)
-    print_DEBUG(f'completed wTask = {wT}')
-            
+                print_DEBUG(f'Creating single task for cmd = {_cmd}')
+                # wTask:WorkingTask = Create_Single_Task(_cmd, devs_list) 
+                wTask:WorkingTask = Create_Dev_Single_Task(_cmd, _sysDevs)
+                print_DEBUG(f'Single_Task = {wTask}')
+                if wTask is not None:     
+                    tempTaskList.append(wTask)
+                else:    
+                    print_err(f'Dev {_cmd[1]} at script cmd {_cmd} is not active in the system')                               # device for cmd is not active in the system 
+                    return None
+        # BUGBUG: code for simultaneous runner add HERE
+        if key[-1] == 'P':
+            sType = RunType.parallel
+        elif key[-1] == 'S':
+            sType = RunType.serial
+        else:
+            print_err(f'--WARNING Commands combination [{group_n}] that is not predefined group is treated as paralel')
+            sType = RunType.parallel
+        
+        wT = WorkingTask(tempTaskList, sType=sType, stepTask=stepTask)
+        print_DEBUG(f'completed wTask = {wT}')
+
+    except Exception as ex:
+        print_err(f'Exception building complex working task for script key = {key}')
+        exptTrace(ex)
+        return None
+        
     return wT          
 
 
@@ -1474,18 +1473,19 @@ def Create_Dev_Single_Task(cmd:str, _sysDevs: systemDevices) -> WorkingTask:
 
         print_log(f'Creating "Device Single Task" from cmd = {cmd}, device = {cmd[1]} ')
 
-        device:CDev = _sysDevs[cmd[1]] 
+        # device:CDev = _sysDevs[cmd[1]] 
+        device:CDev = _sysDevs[cmd[1].split('.')[0]] if cmd[1].split('.')[0] in _sysDevs.keys() else None
+                    # command in format DEV.OP, where DEV is device name, OP is operation
+                    # like 'PHG.UV' so we need only 'PHG' to resolve device from system devices
 
-        if device == None and not (cmd[1] == 'SYS' or cmd[1] == 'CMNT' or cmd[1] == 'NOP'):
+        if device == None and not (cmd[1] == 'CMNT' or cmd[1] == 'NOP'):
                         # device for cmd is not active in the system and not a cmd that does not require device
             raise(f"No active device {cmd[1]} found for cmd: {cmd}")
             # return WorkingTask()                                # return empty task
             
         print_log(f'Resolved device = {device} for cmd = {cmd}')
 
-        wCmd = None
-
-        wCmd = CmdObj(device=device, cmd=OpType.unparsed_cmd, args=argsType(cmd_txt=cmd[2:]))
+        wCmd = CmdObj(device=device, cmd=OpType.unparsed_cmd, args=argsType(cmd_txt=cmd[2:] if len(cmd)>2 else [] ))
 
     except KeyError as e:
         print_err(f'-ERROR- Cant create Single Task for device {cmd[1]} /  active device {cmd[1]} not found in system devices for cmd: {cmd}')

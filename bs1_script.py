@@ -41,6 +41,13 @@ data = [[["_"], ["_"],["_______________________________"]]]    # cmd line in the
 headings = [['#'],['Dev'], ['Cmd']]  # colums titels
 #BUGBUGBUG
 
+def validate_dev_cmd(dev:str, cmd:str, sysDevs: systemDevices) -> bool:
+    from bs1_base_motor import Command
+    try:
+        _cmd:Command = Command.parse_cmd(f'{dev}.{cmd}')
+    except Exception as ex:
+        print_log (f' Invalid device/command - dev: {dev}, cmd: {cmd}. Exception: {ex}')
+        return False
 
 def validate_cmd(dev, cmd, sysDevs: systemDevices):
     parms:dict = sysDevs.getParams()
@@ -158,7 +165,7 @@ def validate_cmd(dev, cmd, sysDevs: systemDevices):
                 print_err (f' Invalid PHG cmd - {cmd}')
                 return False
             
-            _phg_devs_list = _devList[DevType.PHG]
+            _phg_devs_list = _devList[DevType.PHG.value]
             _phg_dev = cmd.split(' ')[0].strip()
 
             if not _phg_dev in _phg_devs_list.keys():
@@ -174,7 +181,7 @@ def validate_cmd(dev, cmd, sysDevs: systemDevices):
                 print_err (f' Invalid PHG_ cmd - {cmd}')
                 return False
             
-            _phg_devs_list = _devList[DevType.PHG]
+            _phg_devs_list = _devList[DevType.PHG.value]
             _phg_dev = cmd.split(' ')[0].strip()
 
             if not _phg_dev in _phg_devs_list.keys():

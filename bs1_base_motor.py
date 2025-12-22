@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 __author__ = "Leonid Voldman"
 __copyright__ = "Copyright 2024"
 __credits__ = ["Leonid Voldman","Sasha Schechtman"]
@@ -6,6 +8,7 @@ __version__ = "2.0.1"
 __maintainer__ = "Leonid Voldman"
 __email__ = "vleonid@voldman.com"
 __status__ = "Prototype"
+
 
 from abc import ABC, abstractmethod
 
@@ -18,10 +21,16 @@ import threading
 import ctypes
 from threading import Lock
 from collections import namedtuple
+import re
 
 from inputimeout  import inputimeout , TimeoutOccurred
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from queue import Queue 
+
+import shlex
+from typing import Any
+import ast
+
 
 
 from bs1_utils import print_log, print_inf, print_err, print_DEBUG, exptTrace, s16, s32, num2binstr, set_parm, get_parm, void_f
@@ -32,6 +41,88 @@ from ctypes import *
 from ctypes import wintypes
 from errorH import ErrTxt
 import threading
+
+
+# command in format DEV.OP, where DEV is device name, OP is operation
+# like 'PHG.UV param1:val1 param2:val2'
+@dataclass
+class Command:
+    device: str                     # device name
+    op: str                        # operation name                     
+    args: dict[str, Any] = field(default_factory=dict)    # parameters dictionary
+
+    # coerce string value to int/float/bool/None/list/dict/string
+    @staticmethod
+    def coerce(value: str) -> Any:
+        # For types int/float/bool/None/list/dict/string in quotes
+        try:
+            return ast.literal_eval(value)
+        except Exception:
+            return value  # as is (string without quotes)
+
+    @staticmethod 
+    def parse_cmd(s: str) -> Command:
+        s = re.sub(r'\s*:\s*', ':', s)    # remove spaces around ':'
+
+        CMD_STR_RE = re.compile(
+            r'^(?P<dev>[A-Za-z_]\w*)\.(?P<op>[A-Za-z_]\w*)(?:\s+(?P<args>.*))?$'
+        )                                   # split into DEV.OP and rest (args)
+
+        KV_RE = re.compile(r'^(?P<key>[A-Za-z_][\w-]*):(?P<val>.*)$')
+                                            # key:value pairs regex
+
+        m = CMD_STR_RE.match(s.strip())     # match the command string
+
+        if not m:
+            raise ValueError("Expected: DEV.OP par:val ...")
+        
+        dev = m.group("dev")
+        op  = m.group("op")
+        tail = m.group("args") or ""
+
+        # print_DEBUG(f'Parsing command: dev={dev}, op={op}, tail={tail}')
+
+        tokens = shlex.split(s)            # supportes quoted strings
+        if not tokens:                      # list is empty
+            raise ValueError("Empty command string")
+        head, *rest = tokens                # split an iterable into its head (DEV.OP) and rest (parameters)
+
+        cmd_re = re.compile(r'^[A-Za-z0-9_]+\.[A-Za-z0-9_]+$')
+        if not cmd_re.match(head):
+            raise ValueError(f"Invalid command format: {head!r}, expected DEV.OP")  # DEV.OP format prints head representation !r  (same as repr(head))
+        
+        # if "." not in head:
+        #     raise ValueError("Expected DEV.OP at the beginning")
+        
+        dev, op = head.split(".", 1)
+
+        args: dict[str, Any] = {}
+
+        for _token in rest:
+            km = KV_RE.match(_token)
+            if not km:
+                raise ValueError(f"Expected key:value, got: {_token!r}")
+            
+            k = km.group("key")
+            v = km.group("val")
+
+            if ":" not in _token:
+                raise ValueError(f"Expected key=value, got: {t!r}")
+            # k, v = t.split(":", 1)
+
+
+            args[k] = Command.coerce(v)
+
+        return Command(device=dev, op=op, args=args)
+    
+    @staticmethod
+    def validate_cmd_str(s: str) -> bool:
+        try:
+            Command.parse_cmd(s)
+            return True
+        except ValueError:
+            return False
+
 
 
 class BaseDev(ABC):
@@ -54,10 +145,32 @@ class BaseDev(ABC):
     # result - True if the command run was successful (in case of synchronous mode) or operation started successfully (in case of async mode)
     
     @abstractmethod
-    def operateDevice(self, command:str)-> tuple[bool, bool]:
+    def operateDevice(self, command, **kwards)-> tuple[bool, bool]:
+                                                # various parameters possible
+                                                # using: _command = kwards['window']
         pass
     
+    # parsing the command into command name and parameters dictionary
+    # all command in format DEV.OP, where DEV is device name, OP is operation
+    # like 'PHG.UV param1:val1 param2=val2'
+    def parseCommand(self, command:str)-> Command:
+        _command =  Command.parse_cmd(command)
+        if _command.device != self.devName:
+            raise ValueError(f'Command device name { _command.device } does not match the device instance name { self.devName }')   
+        return _command
 
+    
+    # def parseCommand(self, command:str)-> tuple[str, dict]:
+    #     cmd_parts = command.split(' ')
+    #     cmd_name = cmd_parts[0].split('.')[0]
+    #     cmd_params = {}
+    #     for param in cmd_parts[1:]:
+    #         if '=' in param:
+    #             key, value = param.split(':', 1)
+    #             cmd_params[key] = value
+    #     return cmd_name, cmd_params
+    
+        
 
 class BaseMotor(BaseDev):
     def __init__(self, port:str, devName:str, parms:dict):
@@ -148,3 +261,19 @@ class BaseMotor(BaseDev):
         
     def getTitle(self)->str:
         return self._title
+    
+
+#------------------------   UNITEST SECTION -----------------
+if __name__ == "__main__":
+
+
+    def test(_str:str):
+        try:
+            cmd = Command.parse_cmd(_str)
+            print(f'Command parsed: device={cmd.device}, op={cmd.op}, args={cmd.args}')
+        except Exception as ex:
+            print(f'Exception : {ex}')
+            
+    print("Running bs1_base_motor.py unitest ...")
+    _cmd = "PHG.UV param1:val1 param2:val2 param3:123 param4:45.67 param5:True param6:None param7:[1,2,3] param8:{'key':'value'}"
+    test(_cmd)

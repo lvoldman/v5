@@ -1,0 +1,111 @@
+#
+# Devices: R[1-2] / Z[1-2] / G[1-2]
+# 
+# InstructionsP:
+# RP:
+# MR (move right) dist speed 
+# ML (move left) dist speed
+# REL (relise stole)
+# HO (reset position)
+#
+# ZP:
+# MA (move absolute) position speed (%)
+# MR (move releative) position speed (%)
+#
+# GP:
+# True | False
+#
+# CAM1: CALIBR R1 test.jsn
+# R1 -motor name
+# test.jsn - profile name (Alexey will provide)
+#x
+
+
+#5S:
+  #MCDMC: PUT 52.45097 -159.15698    # Back Stage Right:
+#6S:
+  #MCDMC: PUT 52.38658 -156.31221    # Back Stage Left
+
+#7S:
+  #MCDMC: PUT 146.22195 -158.88832   # Front Stage Right
+#8S:
+  #MCDMC: PUT 146.25469 -156.26566   # Front stage left
+
+
+
+
+
+
+111111111S:
+ PHG: ALARM
+
+10P:
+  11S:
+    Z5: HO
+    Z4: HO
+  12P:
+    MCDMC: MOVESAFE HOME_POSITION
+20P:
+  21S: 
+    22S:
+      Z1: MA 0
+    Z1: HO
+  23S: 
+    24S:
+      Z2: MA 0
+    Z2: HO 
+  
+  Z6: HO
+ 
+30S:
+  Z3: MA 0
+
+31P:
+  # Z3: HO
+  G3: False
+  G2: False
+  G1: False
+
+32P: 
+  Z3: MA 2.3 
+  Z2: MA 60
+  Z1: MA 130
+  PHG: GRIPPER_AIR
+  
+
+  
+35S: 
+    351P:
+      MCDMC: PUT FRONT_STAGE_RIGHT_ELEC   # Front Stage Right
+    #   MCDMC: PICKUP ASYRIL
+    # 3511P:
+    #   MCDMC: MOVESAFE FRONTSTAGERIGHT
+      
+
+    352P:
+      MCDMC: PUT FRONT_STAGE_LEFT_ELEC    # Front stage left
+
+36S:
+  PHG: COGNEX_LIGHT
+  #SYS: DELAY 1
+  MCDMC: PUTPCB FRONT_STAGE_PCB   # Front Stage 
+  #361P:
+      #PHG: COGNEX_LIGHT OFF
+  #MCDMC: PICKUP COGNEX 
+
+
+#3666S:
+  #MCDMC: MOVESAFE HOME_POSITION
+
+352P:
+  353P:
+    R1: MLC 5000 16 LOW
+  354S:
+    SYS: DELAY 0.3
+    MCDMC: INSERTPCB  0 6.4 -0.5 
+                      #0 7 -0.4
+   
+40P:
+  Z1: MA 35
+  Z3: MA 49.2
+  Z6: MA 46.7

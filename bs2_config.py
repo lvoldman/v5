@@ -82,6 +82,8 @@ class DevType(Enum):
     JTSE = "JTSE"
     DB = "DB"
     PLCDEV = "PLCDEV"
+    SYS = "SYS"
+
 
 
 ZABER_ID = 1027
@@ -136,7 +138,7 @@ class CDev:
 
     def __repr__(self) -> str:
         # r_str = f'[CDev]: Type={self.C_type}, port={self.C_port}, serialN={self.c_serialN}, GUI ID={self.c_gui}, vendorID={self.c_id}'
-        r_str = f'[CDev: {self.C_type}{self.c_gui}]'
+        r_str = f'[CDev: {self.C_type}-{self.c_gui}]'
         return (r_str)
         
     def __del__(self):
@@ -193,7 +195,7 @@ class systemDevices:
             raise ex
         
         try:
-            self.__devs['SYS'] = CDev('SYS', None, None, None, sysDevice())
+            self.__devs[DevType.SYS] = CDev(DevType.SYS, None, None, None, sysDevice())
                                                         # System device always exists and available
             # scan ports and add devices defined in the configuration file
             self.__platform_devs.loadConf(self)

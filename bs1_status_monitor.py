@@ -21,8 +21,7 @@ from Motors_Control_Dashboard import SetLED
 
 from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from bs2_config import DevType
+from bs2_config import DevType
 
 tSync = Enum("tSync", ["start", "stop", "cont"])
 
@@ -110,7 +109,7 @@ class StatusMonitor:
                     
                 self.__window[f'-{m_dev.c_gui:02d}-ZABER-POSSITION-'].update(value = new_pos)
             
-            elif  DevType.MARCO in m_dev.C_type:
+            elif  DevType.MARCO == m_dev.C_type:
                 self.__window[f'-MARCO_ACTUAL_TEMP-'].update(value = m_dev.dev_marco.get_temp())  
                 self.__window[f'-MARCO_PULSE_COUNT_AFTER_RESET-'].update(value = m_dev.dev_marco.get_pulse_count_since_last_reset())  
                 # self.__window[f'-MARCO_PROGRAM-'].update(value = m_dev.dev_marco.progNum)  
@@ -120,7 +119,7 @@ class StatusMonitor:
                     self.__window[f'-MARCO_SINGLE_SHOT_OFF-'].update(button_color='tomato on red')
                     self.__window[f'-MARCO_SINGLE_SHOT_ON-'].update(button_color='white on green')
             
-            elif DevType.MCDMC in m_dev.C_type:
+            elif DevType.MCDMC == m_dev.C_type:
                 if m_dev.dev_mcdmc.isCognexOnline:
                     SetLED (self.__window, '_cognex_', 'green')
                 else:
@@ -142,10 +141,10 @@ class StatusMonitor:
                 self.__window[f'-CGNX_UP_SIDE_DOWN-'].update(value = _info.up_side_down)
                 self.__window[f'-CGNX_OUT_OF_RANGE-'].update(value = _info.out_of_range)
             
-            elif (DevType.DB  in m_dev.C_type) and ('-CGNX_PROCEEDED_PRODUCT-' in self.__window.AllKeysDict):
+            elif (DevType.DB  == m_dev.C_type) and ('-CGNX_PROCEEDED_PRODUCT-' in self.__window.AllKeysDict):
                 self.__window[f'-CGNX_PROCEEDED_PRODUCT-'].update(value = m_dev.dev_DB.success_counter)
             
-            elif (DevType.JTSE in m_dev.C_type) and ('-JBC_TEMP-' in self.__window.AllKeysDict): 
+            elif (DevType.JTSE == m_dev.C_type) and ('-JBC_TEMP-' in self.__window.AllKeysDict): 
                 self.__window[f'-JBC_TEMP-'].update(value = m_dev.dev_jtse.RAT)
                 
             
