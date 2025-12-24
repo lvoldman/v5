@@ -1,0 +1,8 @@
+# Goal
+string action    # "CLOSE" or "OPEN"
+---
+# Result
+bool success     # True if action succeeded
+string message   # Status or error message
+string state     # Final state "OPEN" or "CLOSED"
+---

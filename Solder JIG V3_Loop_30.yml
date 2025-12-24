@@ -1,0 +1,307 @@
+#
+# Devices: R[1-2] / Z[1-2] / G[1-2]
+# 
+# InstructionsP:
+# RP:
+# MR (move right) dist speed 
+# ML (move left) dist speed
+# REL (relise stole)
+# HO (reset position)
+#
+# ZP:
+# MA (move absolute) position speed (%)
+# MR (move releative) position speed (%)
+#
+# GP:
+# True | False
+#
+# CAM1: CALIBR R1 test.jsn
+# R1 -motor name
+# test.jsn - profile name (Alexey will provide)
+#x
+
+
+#5S:
+  #MCDMC: PUT 52.45097 -159.15698    # Back Stage Right:
+#6S:
+  #MCDMC: PUT 52.38658 -156.31221    # Back Stage Left
+
+#7S:
+  #MCDMC: PUT 146.22195 -158.88832   # Front Stage Right
+#8S:
+  #MCDMC: PUT 146.25469 -156.26566   # Front stage left
+
+
+
+
+
+
+340P:
+  Z1: MA 35
+  3123S:  
+    PHG: GRIPPER_AIR
+  341S:
+    #G2: False
+    #1411S:
+    R2: ML 20000 5000
+    SYS: DELAY 0.3
+    G2: False
+    #342S:
+      #G2: True
+
+    
+    #R2: MR 70000 5000 #Incoder was 100000
+  81S:
+    SYS: DELAY 0.5
+    82P:
+      Z3: MA 49.2
+      Z2: MA 196
+      Z6: MA 46.7
+      
+      #MCDMC: MOVESAFE BACKSTAGEPART
+      
+      #R1: ML 43665 5000
+
+
+#360P:
+  #R1: HO
+  #CAM1: CALIBR R1 1
+7000P:
+
+  7100S:
+    322S:
+      323P:
+        G2: True
+        R2: MR 90000 8000
+        MCDMC: MOVESAFE BACKSTAGEPART
+      MCDMC: MOVEREL 0 0 63.5 0     
+      #MCDMC: MOVESAFE BACKSTAGEPART
+
+    3221S:
+        MCDMC: VACUUM ON
+    3222S:
+        MCDMC: MOVEREL 0 10 0 0 5
+    3223S:
+        MCDMC: MOVESAFE PARTTOBOX
+    3224S:
+        MCDMC: VACUUM OFF  50
+        DB: ADD True
+
+    3225S:
+        G2: False    
+        #CAM1: CALIBR R2 1
+    7321P:
+      MCDMC: PUT BACK_STAGE_RIGHT_ELEC    # Back Stage Right:    
+          # 52.5802, -158.81741, 98.36776, 179.98066
+    7322P:
+      MCDMC: PUT BACK_STAGE_LEFT_ELEC   # Back Stage Left 
+        # 52.62912, -156.23681, 98.41096, 179.58296
+
+    451S:
+      PHG: COGNEX_LIGHT
+      #SYS: DELAY 0.9
+      MCDMC: PUTPCB BACK_STAGE_PCB   # Back Stage 
+      #4512P:
+        #PHG: COGNEX_LIGHT OFF
+      
+
+    4521P:
+      3521P: 
+        R2: MRC 5000 16 LOW
+      3531S:
+        SYS: DELAY 0.3
+        MCDMC: INSERTPCB 0 6 -0.5
+    #45122P:
+      #CAM1: CALIBR R2 1
+
+  7200S:
+    
+    350S:
+      
+      Z4: MA 21.9
+      #Z4: MA 22
+      Z5: MA 10.3
+      PHG: JTSE_HOTAIR 
+      R1: MLC 2000 16 HIGH
+
+    380P:
+      G1: True
+
+    
+    382P:
+      Z6: MR -0.60
+      #Z6: MR -0.64
+
+    390P:
+      G3: True
+      
+
+      901S:
+        SYS: DELAY 0.3
+        Z5: MA 10.8 10% 
+
+    
+    3100P:
+      3101P:
+        R1: MR 150000 900
+         #R1: MR 150000 900
+      
+      3110S:
+        SYS: DELAY 12
+        PHG: JTSE_HOTAIR OFF      
+    
+
+    3121P:
+      G1: False
+      
+    3122S:
+      Z6: MA 38
+      G1: True
+    
+    3130P:
+      3131S:
+        Z5: MA 0
+        #Z4: MA 0
+      Z6: MA 0
+      G1: False
+
+
+   
+  
+      
+    
+      
+
+    
+3150P:
+  Z2: MA 60
+  3123S:  
+      PHG: GRIPPER_AIR 
+  #3151S:
+  131511S:
+    #G3: False
+    R1: MR 20000 5000
+    SYS: DELAY 0.3
+    G3: False
+    #342S:
+      #G3: True
+    
+    #R1: ML 100000 5000
+  81S:
+    SYS: DELAY 0.5
+    82P:
+      Z3: MA 2.3
+      Z1: MA 196
+      Z6: MA 47
+     
+      #MCDMC: MOVESAFE FRONTSTAGEPART
+
+#152P:
+  #R2: HO
+  #CAM1: CALIBR R2 1
+
+6100P:
+  6200S:
+    321S:
+      # MCDMC: PUT 146.26593 -97.8616    # Front Stage Right:    
+         #MCDMC: MOVESAFE FRONTSTAGEPART
+      323P:
+        G3: True
+        R1: ML 90000 5000
+        MCDMC: MOVESAFE FRONTSTAGEPART   
+      MCDMC: MOVEREL 0 0 62.9 0
+    3211S:
+        MCDMC: VACUUM ON
+    3212S:
+        MCDMC: MOVEREL 0 10 0 0 5
+    3213S:
+        MCDMC: MOVESAFE PARTTOBOX 
+    3214S:
+        MCDMC: VACUUM OFF  50
+        DB: ADD True
+    3215S:
+        G3: False
+        #CAM1: CALIBR R1 1
+
+    #320P:
+        #SYS: DELAY 5
+    6351P:
+      MCDMC: PUT FRONT_STAGE_RIGHT_ELEC   # Front Stage Right
+      
+    6352P:
+      MCDMC: PUT FRONT_STAGE_LEFT_ELEC    # Front stage left
+      
+    36S:
+      PHG: COGNEX_LIGHT 
+      #SYS: DELAY 0.9
+      MCDMC: PUTPCB FRONT_STAGE_PCB 
+      #361P:
+        #PHG: COGNEX_LIGHT OFF   # Front Stage 
+      #CAM1: CALIBR R1 1
+      #MCDMC: PICKUP COGNEX
+
+    #3666S:
+      #MCDMC: MOVESAFE HOME_POSITION
+
+    352P:
+      353P: 
+        R1: MLC 5000 16 LOW
+      354S:
+        SYS: DELAY 0.3
+        MCDMC: INSERTPCB 0 6.4 -0.5
+    #3521P:
+      #CAM1: CALIBR R1 1
+
+  
+  6300S:
+
+    151S:
+      
+      Z4: MA 21.85
+      Z5: MA 10.5
+      PHG: JTSE_HOTAIR 
+      R2: MRC 2000 5 HIGH  
+
+    160P:
+      G1: True
+
+    162P:
+      Z6: MR -0.49
+      #Z6: MR -0.51
+      
+   
+    170P:
+      G2: True
+      
+      901S:
+        SYS: DELAY 0.3
+        Z5: MA 10.8 10%
+   
+
+    190P:
+      191P:
+        R2: ML 150000 900
+         #R1: MR 150000 900
+      
+      192S:
+        SYS: DELAY 12
+        PHG: JTSE_HOTAIR OFF
+    
+    221P:
+      G1: False
+
+    222S:
+      Z6: MA 38
+      G1: True
+    
+    220P:
+      221S:
+        Z5: MA 0
+        #Z4: MA 0
+      Z6: MA 0
+      G1: False  
+
+    
+       
+
+    

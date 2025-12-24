@@ -1,0 +1,11 @@
+# Goal
+string      action              # "MA" | "MR" | "HO" | "VIBRATE"
+float32     position    0.0     # in mm (for absolute)
+float32     distance    0.0     # in mm (for relative)
+int32       velocity    100     # in percentage
+---
+# Result
+bool        success     # True if action succeeded
+string      message     # Status or error message
+float32     position    # Final position
+---

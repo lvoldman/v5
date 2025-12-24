@@ -12,7 +12,6 @@ import PySimpleGUI as sg
 import string, io
 import yaml, sys, re
 import datetime, time
-from typing import List
 import os
 
 
@@ -41,18 +40,34 @@ data = [[["_"], ["_"],["_______________________________"]]]    # cmd line in the
 headings = [['#'],['Dev'], ['Cmd']]  # colums titels
 #BUGBUGBUG
 
+# Validate device and command
 def validate_dev_cmd(dev:str, cmd:str, sysDevs: systemDevices) -> bool:
     from bs1_base_motor import Command
+    if dev is None or cmd is None:
+        print_log (f' Invalid device/command - dev: {dev}, cmd: {cmd}. ')
+        return False
+    elif dev == 'NOP':
+        return True
+    
     try:
         _cmd:Command = Command.parse_cmd(f'{dev}.{cmd}')
+        print_log (f' Validating device/command - dev: {dev}, cmd: {cmd}. Parsed cmd = {_cmd}, dev type = {sysDevs.getDevType(dev)}')
+        valid = Command.validate_device_cmd(sysDevs.getDevType(dev), _cmd, sysDevs.getParams())
+
     except Exception as ex:
+        exptTrace(ex)
         print_log (f' Invalid device/command - dev: {dev}, cmd: {cmd}. Exception: {ex}')
         return False
+    
+    return valid
+
+
 
 def validate_cmd(dev, cmd, sysDevs: systemDevices):
     parms:dict = sysDevs.getParams()
-    _devList:dict = sysDevs.getConfDevs()  # get configured devices (in config file, not really appeared in the system)
-                                 # validate command to be run
+    _devList:dict = sysDevs.getConfDevs()  # get configured devices (in config file, not really appeared 
+                                            # in the system)
+                                            # validate command to be run
     print_log (f'dev = {dev}, cmd = {cmd}')
     try:
 
@@ -165,7 +180,7 @@ def validate_cmd(dev, cmd, sysDevs: systemDevices):
                 print_err (f' Invalid PHG cmd - {cmd}')
                 return False
             
-            _phg_devs_list = _devList[DevType.PHG.value]
+            _phg_devs_list = _devList[DevType.PHG.value] 
             _phg_dev = cmd.split(' ')[0].strip()
 
             if not _phg_dev in _phg_devs_list.keys():
@@ -286,8 +301,8 @@ def validate_cmd(dev, cmd, sysDevs: systemDevices):
 
     return True
 
-new_colors:List = list()                         # Colors per line (in fact one of two main and alt colors for adjacent command group)
-new_script:List = list()                         # The loaded  script in text format will be dispalyes in the table (using pweudo graphic)
+new_colors:list = list()                         # Colors per line (in fact one of two main and alt colors for adjacent command group)
+new_script:list = list()                         # The loaded  script in text format will be dispalyes in the table (using pweudo graphic)
 LoadedScript:dict = dict()                       # The script in dictionary format (as it loaded from YAML file)
 groups= list()                                   # list of lists of commands's group 
 
@@ -303,7 +318,7 @@ def collectDevices(vScript):
 
 
 def scriptParallelValidator(vScript:dict, op = 'S'):
-    parSet:List= list()
+    parSet:list= list()
 
     try:
         for _key, _val in vScript.items():
@@ -459,7 +474,7 @@ def scriptFormater(subScript) -> dict:
     return new_dict 
 
 
-def ymlPars(CmdScript:dict, sysDevs:systemDevices, group:List=None, line:int = 0, group_index:int = 0, cmdStr:str = str()):
+def ymlPars(CmdScript:dict, sysDevs:systemDevices, group:list=None, line:int = 0, group_index:int = 0, cmdStr:str = str()):
 
     global new_colors, new_script, groups
     try:
@@ -512,7 +527,8 @@ def ymlPars(CmdScript:dict, sysDevs:systemDevices, group:List=None, line:int = 0
                 row.append(device)
                 single_cmd = commands[device]
 
-                if not validate_cmd(device, single_cmd if type(single_cmd) == str else str(single_cmd), sysDevs):
+                if not validate_dev_cmd(device, single_cmd if type(single_cmd) == str else str(single_cmd), sysDevs):
+                # if not validate_cmd(device, single_cmd if type(single_cmd) == str else str(single_cmd), sysDevs):
                     raise Exception(f'Script error. Group = {group_n}, Device= {device} ')
                 
                 if isinstance(single_cmd, str):
@@ -659,9 +675,9 @@ def load_embeded_script(filename, sysDevs:systemDevices)->bool:
     return True
 
 
-def get_subscript(script, sub_script_lines)->List[str]:
+def get_subscript(script, sub_script_lines)->list[str]:
     devs = set()
-    subscript:List[str] = list()
+    subscript:list[str] = list()
     for _count, line in enumerate(sub_script_lines):
         print_DEBUG(f'count = {_count}, line = {line}')
         cmd = script[line]
@@ -819,9 +835,9 @@ def scroolTable(window:sg.Window, row:int, values):
 
     
 
-def GetSubScript(window, event, values, ind = None)->List[str]:
+def GetSubScript(window, event, values, ind = None)->list[str]:
 
-    subscript:List[str] = list()
+    subscript:list[str] = list()
 
     if groups == []:
         return []
@@ -963,8 +979,6 @@ if __name__ == "__main__":
 
     from threading import  Thread
     from bs2_config import systemDevices
-    sysDev = systemDevices()
-    parms:dict =  sysDev.getParams()
     
     # ------ Window Layout ------
     layout = [[Tbl],
@@ -981,7 +995,7 @@ if __name__ == "__main__":
                     )
 
 #----------  Util-----------
-    def ScriptTestRunner(window:sg.Window, selected_group:List[str]):
+    def ScriptTestRunner(window:sg.Window, selected_group:list[str]):
 
         gr_index = -1
 
@@ -1049,7 +1063,9 @@ if __name__ == "__main__":
 
 # ------ Event Loop ------
     
-    
+    sysDevs = systemDevices()
+    parms:dict =  sysDevs.getParams()
+    print_log(f'System devices = {sysDevs}')
 
     while True:
         event, values = window.read()

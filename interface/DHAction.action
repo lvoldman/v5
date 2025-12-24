@@ -1,0 +1,12 @@
+# Goal
+string      action              # "MA" | "MR" | "HO" | "OPEN" | "CLOSE"
+float32     position    0.0     # position to rotate to in degrees for absolute movement
+float32     distance    0.0     # distance to rotate in degrees for relative movement
+int32       velocity    100     # velocity in percentage
+---
+# Result
+bool        success     # True if action succeeded
+string      message     # Status or error message
+string      state       # Final state "OPEN" or "CLOSED"
+float32     position    # Final position in degrees
+---

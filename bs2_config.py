@@ -44,8 +44,10 @@ if TYPE_CHECKING:
     from bs1_io_control import IOcontrol
     from bs1_festo_modbus import Festo_Motor
     from bs1_sqlite import StatisticSQLite 
+
     # from bs1_jtse_serial import  JTSEcontrol
 
+from bs2_DSL_cmd import DevType
 from bs1_utils import print_log, print_inf, print_err, print_DEBUG, exptTrace, s16, s32, void_f, \
                         assign_parm, get_parm  
 print_DEBUG = void_f
@@ -62,27 +64,6 @@ print_DEBUG = void_f
 
 plcDataPTR = Enum('plcDataPTR', [('API', "API"), ('DeviceName', "DeviceName"), \
                            ('DeviceInfo', "DeviceInfo"), ('State', "State")])
-
-class DevType(Enum):
-    TIME_ROTATOR = "SP"
-    DIST_ROTATOR = "RT"
-    TROLLEY = "TR"
-    GRIPPER = "OBSOLETE"            # replaced by GRIPPERv3
-    GRIPPERv3 = "GR"
-    ZABER = "ZB"
-    DAQ_NI = "DAQ_NI"
-    HMP = "HMP"
-    PHG = "PHG"
-    CAM = "CAM"
-    DH = "DH"
-    MCDMC = "MCDMC"
-    MARCO = "MARCO"
-    INTERLOCK = "INTERLOCK"
-    IOCONTROL = "IOCONTROL"
-    JTSE = "JTSE"
-    DB = "DB"
-    PLCDEV = "PLCDEV"
-    SYS = "SYS"
 
 
 
@@ -118,8 +99,8 @@ For final version will be the single refernce.
 
 class CDev:
 
-    def __init__(self, C_type, C_port, c_id, c_serialN, c_dev = None, c_gui=None):
-        self.C_type = C_type
+    def __init__(self, C_type: DevType, C_port, c_id, c_serialN, c_dev = None, c_gui=None):
+        self.C_type: DevType = C_type
         self.C_port = C_port
         self.c_id = c_id
         self.c_serialN = c_serialN
@@ -207,7 +188,7 @@ class systemDevices:
         
     # bracket notation for getting/setting devices by name (example: sysDevs['T1'] / sysDevs['G1'] = CDev(...) )
     def __getitem__(self, _devName:str) -> CDev:
-        return None if _devName not in self.self.__devs.keys() else self.self.__devs[_devName] 
+        return None if _devName not in self.__devs.keys() else self.__devs[_devName] 
     
     def __setitem__(self, _devName:str, _dev:CDev):
         if isinstance(_dev, CDev):
@@ -229,6 +210,14 @@ class systemDevices:
     
     def getConfDevs(self) -> dict:
         return self.__platform_devs.getDevs()
+    
+    def getDevType(self, devName:str) -> str:
+        _cDevs = self.__platform_devs.getDevs()
+        for _dType, _dList in _cDevs.items():
+            if devName in _dList.keys():
+                return _dType 
+        
+        return None
 
     def __repr__(self) -> str:
         r_str = f'{self.__devs}'

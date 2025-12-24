@@ -1,0 +1,27 @@
+
+10P: 
+    Z1: MA position:35 
+    12S:
+        1211S:
+                PHG: ROTATE_PISTON onoff:ON
+                SYS: DELAY duration:0.5
+        121P: 
+            # Move front stage inside the soldering area (product is inside from previous iteration)
+            
+            Z3: MA position:49.2
+            Z2: MA position:196.2
+            Z6: MA position:46.7
+
+20P: # In this parallel we removing feeding the BACK stage and working on FRONT stage
+
+    21S:   #Handling removing\feeding from\of back stage
+        MCDMC: MOVESAFE p3d:BACK_PICK_PRODUCT
+        211P:
+            R2: MR position:95000 velocity:9000
+            21111S: #robot release finished product from cavity 
+                SYS: DELAY duration:0.4
+                MCDMC: MOVEREL x:0 y:7 z:0 gamma:0 velocity:1          
+        SYS: DELAY duration:0.2
+        # if picked - remove part
+        PHG: ALARM # vision didnt detect product, press resume to try to pick
+        G1: CLOSE

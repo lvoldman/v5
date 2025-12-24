@@ -21,7 +21,8 @@ from Motors_Control_Dashboard import SetLED
 
 from typing import TYPE_CHECKING
 
-from bs2_config import DevType
+from bs2_DSL_cmd import DevType
+
 
 tSync = Enum("tSync", ["start", "stop", "cont"])
 

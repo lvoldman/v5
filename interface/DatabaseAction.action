@@ -1,0 +1,10 @@
+# Goal
+string      action              # Database action to execute 'ADD' | 'RESET'
+bool        good       true     # Boolean parameter for the action
+---
+# Result
+bool        success     # True if action succeeded
+string      message     # Status or error message
+int32       good        # Number of good records
+int32       bad         # Number of bad records
+---

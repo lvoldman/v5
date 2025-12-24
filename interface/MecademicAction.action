@@ -1,0 +1,21 @@
+# Goal
+string      action              # "PUT" | "PUTPCB" | "INSERTPCB | "MOVESAFE" | "MOVEREL" | "MOVEABS" | "VACUUM" | "ACTIVATE" | "DEACTIVATE" | "VALIDATE" 
+string      p3d         ""      # Predefined location as in params
+string      vacuum      ""      # Vacuum on / off
+float32     duration            # Vacuum purge duration
+int32       velocity    50      # Joint velocity in percentage
+float32     x           0.0
+float32     y           0.0
+float32     z           0.0
+float32     gamma       0.0
+---
+# Result
+bool        success          false  # True if action succeeded
+string      message          ""     # Status or error message
+float32     x                0.0    # Final x location
+float32     y                0.0    # Final y location
+float32     z                0.0    # Final z location
+float32     gamma            0.0    # Final gamma location
+float32     vacuum           0.0    # Vacuum value
+int32       valid_products   0      # valid products available
+---

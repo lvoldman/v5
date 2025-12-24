@@ -1,0 +1,10 @@
+# Goal
+string      action              # "ML" "MR" "HO" "REL" "STALL"
+float32     position    0.0     # in some unit
+int32       velocity    12000   # in some unit
+---
+# Result
+bool        success     # True if action succeeded
+string      message     # Status or error message
+float32     position    # Final position
+---

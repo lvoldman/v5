@@ -1,0 +1,10 @@
+# Goal
+string  action           # Device name as in configuration
+string  onoff      ""    # "" for trigger/toggle | "ON" | "OFF"
+---
+# Result
+string  device      # Device name as in configuration
+bool    success     # True if action succeeded
+string  message     # Status or error message
+string  state       # Final state
+---

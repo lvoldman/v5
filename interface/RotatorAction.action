@@ -1,0 +1,12 @@
+# Goal
+string      action                              # "MA" "ML" "MR" "MLC" "MRC" "HO" "REL"
+float32     position                0.0         # in some unit
+int32       velocity                12000       # in some unit
+float32     duration                1.0         # seconds
+string      gpio_quickstop_polarity ""          # "LOW" or "HIGH"
+---
+# Result
+bool        success     # True if action succeeded
+string      message     # Status or error message
+float32     position    # Final position
+---

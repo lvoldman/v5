@@ -1,0 +1,9 @@
+# Goal
+string      action      # "ML" "MR"
+float32     duration    # in seconds
+---
+# Result
+bool        success     # True if action succeeded
+string      message     # Status or error message
+float32     position    # Final position
+---

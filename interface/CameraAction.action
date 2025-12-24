@@ -1,0 +1,9 @@
+# Goal
+string      action              # "CHECK"
+string      profile     ""      # As in params
+---
+# Result
+bool        success             # True if action succeeded
+int32       action              # Required action to take
+string      message
+---

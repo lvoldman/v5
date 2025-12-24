@@ -1,0 +1,8 @@
+# Goal
+string      action              # "UPDATE"
+---
+# Result
+bool        success     # True if action succeeded
+string      message     # Status or error message
+int32       temp        # Temp in celsius
+---

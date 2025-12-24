@@ -38,8 +38,8 @@ from bs1_utils import print_log, print_inf, print_err, print_DEBUG, exptTrace, s
 
 from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from bs2_config import DevType
+from bs2_DSL_cmd import DevType
+
 
 STATUS_RESOLUTION = 2.0            # seconds between status updates
 
