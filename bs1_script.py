@@ -51,8 +51,15 @@ def validate_dev_cmd(dev:str, cmd:str, sysDevs: systemDevices) -> bool:
     
     try:
         _cmd:Command = Command.parse_cmd(f'{dev}.{cmd}')
-        print_log (f' Validating device/command - dev: {dev}, cmd: {cmd}. Parsed cmd = {_cmd}, dev type = {sysDevs.getDevType(dev)}')
-        valid = Command.validate_device_cmd(sysDevs.getDevType(dev), _cmd, sysDevs.getParams())
+        _dType = sysDevs.getDevType(dev)
+        if _dType is None:
+            if dev == 'SYS':
+                _dType = DevType.SYS
+            else:
+                raise ValueError(f' Invalid device - dev: {dev}. Device name is not found in configuration or is not associated with a type.')
+            
+        print_log (f' Validating device/command - dev: {dev}, cmd: {cmd}. Parsed cmd = {_cmd}, dev type = {_dType}')
+        valid = Command.validate_device_cmd(_dType, _cmd, sysDevs.getParams(), sysDevs.getConfDevs())
 
     except Exception as ex:
         exptTrace(ex)

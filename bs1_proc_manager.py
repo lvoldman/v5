@@ -40,7 +40,7 @@ import bs1_mecademic as mc
 # from bs1_phidget import PhidgetRELAY
 
 
-RunType = Enum("RunType", ["parallel", "serial", "single", "simultaneous"])
+RunType = Enum("RunType", ["parallel", "serial", "single", "simultaneous", "IF", "LOOP"])
 
 
 # CmdObj = namedtuple("CmdObj", ["device", "cmd"])
@@ -63,12 +63,12 @@ argsType = namedtuple("argsType",  argsTypeFields, defaults=[None,] * len(argsTy
 
 @dataclass
 class CmdObj:
-    device:CDev = None          # device to perate
-    cmd:OpType = None           # command to run
+    device:CDev = None          # device to run command on
+    cmd:OpType = None           # command to run, ie. OpType.go_to_dest
     args:argsType = None        # parameters for cms (position, time, etc)     
 
     @property
-    def operation(self):        # cmd text fore unparsed_cmd
+    def operation(self):        # cmd text fore unparsed_cmd type
         return self.args.cmd_txt
 
 # StatusType = Enum("StatusType", ["disabled", "in_motion", "available"])
@@ -80,9 +80,9 @@ class CmdObj:
 
 @dataclass
 class TaskObj:
-    wTask:WorkingTask = None
+    wTask:WorkingTask = None                # working task (CmdObj or WorkingTask)
     status:bool = False                     # True - in progress, False = not on progress
-    threadID:Thread = None
+    threadID:Thread = None                  # thread ID if in progress
     def __repr__(self) -> str:
         return self.wTask.__repr__()
 
@@ -95,13 +95,16 @@ taskRes.__annotations__={'wTaskID':int,  'result':bool, 'device':str}         # 
 class WorkingTask:                                  # WorkingTask - self-recursive object structure where each object 
                                                     # is a single command or list of objects of WorkingTask type, that may be 
                                                     # operated in serial or paralel (simultaneously) manner
-    def __init__(self, taskList = None, sType = RunType.parallel, stepTask:bool = False):
-        self.__sub_tasks = list()                       # list of objects of type TaskObj or CmdObj (at __sub_tasks[0])
+    def __init__(self, taskList: list[TaskObj] | CmdObj | None = None, 
+                sType: RunType = RunType.parallel, stepTask:bool = False):
+        self.__sub_tasks: list[TaskObj | CmdObj] = list()      # list of objects of type TaskObj or CmdObj 
+                                                               # (at __sub_tasks[0]), if single command
         self.__task_type:RunType = sType                       # running sequence: parallel/serial
         self.__reportQ: Queue =  Queue()                        # Queue() object for termination notification 
-        self.__emergency_stop: bool = False
-        self.__id = id(self)
-        self.__stepTask:bool = stepTask
+        self.__emergency_stop: bool = False                     # Emergency stop flag
+        self.__id = id(self)                                   # unique ID of the working task
+        self.__stepTask:bool = stepTask                      # True - step task (i.e. STEP button pressed in GUI) 
+                                                            # and wait for user confirmation to proceed to next step
 
         if taskList == None:                    # empty task (i.e. no active dev)
             print_err(f'-WARNING- Empty task being loaded')
@@ -109,14 +112,13 @@ class WorkingTask:                                  # WorkingTask - self-recursi
         
 
         if type(taskList) == CmdObj:           # single command - end of recursion / otherwise list of commands
-            self.__task_type = RunType.single
-            # subTask = TaskObj(wTask=taskList, status=False)
-            # self.__sub_tasks.append(subTask)
-            self.__sub_tasks.append(taskList)
+            self.__task_type = RunType.single       
+            self.__sub_tasks.append(taskList)       
 
 
 
         elif (sType == RunType.parallel or sType == RunType.serial) and type(taskList) == list:
+                                                # list of commands to be run in paralel or serial manner
             self.__sub_tasks = [None] * len(taskList)
             for i, tsk in enumerate(taskList):
                 subTask = TaskObj(wTask=tsk, status=False)
@@ -722,12 +724,15 @@ class WorkingTask:                                  # WorkingTask - self-recursi
                            #   device operations 
             if wCmd.device is None:     
                 return False, True                      # no device assigned to command (i.e NOP or CMNT command)
+            
+            if wCmd.cmd != OpType.unparsed_cmd:
+                raise Exception(f'Only unparsed_cmd operation is supported in __runDevCmd method. cmd = {wCmd.cmd}')
                                 
             # runner = wCmd.device.loadDeviceOp(wCmd)
             # toBlock, opResult = wCmd.device.__class__.runDevicesOp(runner)          # run the loaded commands
-            toBlock, opResult = wCmd.device.cDevice.operateDevice(command=wCmd, window=window)          # run the loaded commands
+            toBlock, opResult = wCmd.device.cDevice.operateDevice(command=wCmd.operation, window=window)          # run the loaded commands
 
-            print_log(f'Device command loaded and run at device {wCmd.device.get_device().devName}, runner = {runner}')
+            print_log(f'Device command loaded and run at device {wCmd.device.get_device().devName}, type = {wCmd.cmd}, command = {wCmd.args}')
 
         
         except Exception as ex:

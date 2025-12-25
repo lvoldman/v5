@@ -62,7 +62,7 @@ class DevType(Enum):
     SYS = 'SYS'
 
 class pType(Enum):
-    OP:str = 'OP'          # operation
+    OP:str | bool = 'OP'      # operation / boolean in case of PHG ON/OFF/True/False
     PARM:str = 'PARM'         # parameter
     RET:str = 'RET'          # return value
 
@@ -111,8 +111,8 @@ devCmdCnfg: dict[DevType, dict[pType, list[str]]] = {
         pType.PARM: ['p3d', 'vacuum', 'duration', 'velocity', 'x', 'y', 'z', 'alpha', 'beta', 'gamma'],
         pType.RET: ['success', 'message', 'x', 'y', 'z', 'alpha', 'beta', 'gamma', 'vacuum', 'valid_products']
     },
-    DevType.PHG: {
-        pType.OP: ['*'],            # dev name defined in params configuration 
+    DevType.PHG: {                              # dev name is defined in devices configuration file (serials) 
+        pType.OP: ['ON', 'OFF','TRIG', True, False],   # ON/OFF for set state, TRIG/True/False for trigger/toggle
         pType.PARM: ['onoff'],
         pType.RET: ['success', 'message', 'state', 'device']
     }, 
@@ -126,6 +126,11 @@ devCmdCnfg: dict[DevType, dict[pType, list[str]]] = {
         pType.PARM: ['duration'],
         pType.RET: ['success', 'message', 'position']
     },
+    DevType.SYS: {
+        pType.OP: ['DELAY', 'PLAY_MEDIA'],
+        pType.PARM: ['duration', 'file'],
+        pType.RET: ['success', 'message', 'position']
+    }
 }   
 # parameter type coercion dictionary
 
@@ -152,7 +157,8 @@ vType: dict[str, type] = {
     'bad': bool,
     'state': str,
     'device': str,
-    'onoff': str,       # "" for trigger/toggle | "ON" | "OFF"
+    'onoff': str  | bool,       # "" for trigger/toggle | "ON" | "OFF"
+    'file': str,
     'NoneType': type(None)
 }
 
@@ -197,6 +203,7 @@ class Command:
         
         dev = _match_groups.group('dev')
         op  = _match_groups.group('op')
+        op = Command.coerce(op)      # coerce operation to bool if needed (for PHG ON/OFF/True/False)
         tail = _match_groups.group('args') or ''
 
         # dev, op = head.split('.', 1)
@@ -245,14 +252,19 @@ class Command:
             return False
     
     @staticmethod
-    def validate_device_cmd(dType:DevType, cmd: Command,  parms:dict=None) -> bool:
+    def validate_device_cmd(dType:DevType, cmd: Command,  parms:dict=None, confDevs:dict = None) -> bool:
+         
         try:
             device_type: DevType = DevType(dType)
             print_log(f'Validating command {cmd} for device type {device_type}')
+
+            if device_type not in devCmdCnfg.keys():
+                raise ValueError(f'Device type {device_type} not recognized in device command configuration. Allowed types: {list(devCmdCnfg.keys())}')
+        
             if  cmd.op not in devCmdCnfg[device_type][pType.OP] and \
                 '*' not in devCmdCnfg[device_type][pType.OP]:   # wildcard for any operation    
 
-                raise ValueError(f'Operation {cmd.op} not allowed for device type {device_type}')
+                raise ValueError(f'Operation {cmd.op} not allowed for device type {device_type} (not listed in {devCmdCnfg[device_type][pType.OP]})')
             
             for parm in cmd.args.keys():            # check that all parameters are allowed
                 if parm not in devCmdCnfg[device_type][pType.PARM]:
@@ -277,7 +289,7 @@ class Command:
                 else:
                     raise ValueError(f'No appropriate profiles configuration provided for camera device validation')
                 
-            if device_type == DevType.MCDMC:
+            elif device_type == DevType.MCDMC:
                 if '3DPOSITIONS' in parms[cmd.device].keys() and (_coord3D := parms[cmd.device]['3DPOSITIONS']) is not None:
                     _subcmd = cmd.op
                     print_log(f'cmd = {cmd}, subcmd = {_subcmd}')
@@ -289,7 +301,11 @@ class Command:
                         raise ValueError(f"ERROR: Invalid POSITION in PUTPCB/PUT  - {cmd.args.get('p3d', '')} is not listed in {_coord3D}. Cmd = {cmd}")
                     else:
                         print_log (f" Cmd - {cmd}. Subcmd - {cmd.op} , list - {_coord3D.keys()}. ")
-
+            elif device_type == DevType.PHG:
+                # operation is the device name for PHG
+                if confDevs is not None and confDevs[dType] is not None and cmd.device not in confDevs[dType].keys():   
+                    raise ValueError(f'PHG device {cmd.device} not found in configuration devices list {list(confDevs[dType].keys())} of type {dType} for command {cmd}')
+                
                     
         except ValueError as ve:
             print_err(f'Command validation failed: {cmd} for device type {device_type}: {ve}')
@@ -319,7 +335,8 @@ if __name__ == '__main__':
             print(f'Exception : {ex}')
             
     print('Running bs2_DSL_cmd.py unitest ...')
-    _cmd = 'PHG.UV param1:val1 param2:val2 param3:123 param4:45.67 param5:True param6:None param7:[1,2,3] param8:{"key":"value"}'
+    # _cmd = 'PHG.UV param1:val1 param2:val2 param3:123 param4:45.67 param5:True param6:None param7:[1,2,3] param8:{"key":"value"}'
+    _cmd = 'PHG.UV'
     
     test(_cmd)
 

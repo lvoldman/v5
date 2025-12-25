@@ -32,6 +32,7 @@ DEFAULT_TIMEOUT_ERROR = 10
 
 from bs1_utils import print_log, print_inf, print_err, print_DEBUG, exptTrace, s16, s32, set_parm, get_parm, \
     assign_parm , assign_type_parm
+from bs1_base_motor import BaseDev
 
 
 # camRes = namedtuple("camRes",  ["res", "dist", "repQ"])
@@ -73,7 +74,7 @@ POSITION_REPORT_REG = 40010     # position reporting >> 2  WORDS  [0,1] (little-
 
 DEFAULT_NOZZLE_HEIGHT = 2000    # 2 mm in microns 
 
-class Cam_modbus:
+class Cam_modbus(BaseDev):
     @staticmethod
     def find_server(t_ip, t_port) -> bool:
         try:
@@ -116,17 +117,15 @@ class Cam_modbus:
         self.start_time = 0
         self.motor = None
         self.window:sg.Window = None
-        self.wThread = None
+        self._wd = None
         self.__abs = False
-        self.devName = dName
-        self.devNotificationQ = Queue()
         self.__index = int(dName[-1])
-        self.__dev_lock =  Lock()                 # device lock to avoid multiply access
         self.__term_signal = False
         self.__profiles:dict = None
         self.__nozzle_height = DEFAULT_NOZZLE_HEIGHT
         self.__left_margin:int = 0
         self.__right_margin:int = 0 
+        super().__init__(dName=dName, parms=parms)
         try:
             print_log(f'Connecting ModBus server at IP:port = {mb_ip}:{mb_port}')
             self.m_client = ModbusClient(host=mb_ip,            # Initiating modbus client connection
@@ -134,7 +133,7 @@ class Cam_modbus:
                     unit_id = mb_unit_id,
                     debug=False, auto_open=True)
         
-            self.set_parms(parms=parms)
+            self.set_parms(parms=self._parms)
 
 
         except Exception as ex:
@@ -146,26 +145,26 @@ class Cam_modbus:
 
 
     def set_parms(self, parms)->bool:
-        # self.TIMEOUT_ERROR = get_parm(self.devName, parms, 'TIMEOUT_ERROR')
-        self.TIMEOUT_ERROR = assign_parm(self.devName, parms, 'TIMEOUT_ERROR', DEFAULT_TIMEOUT_ERROR)
-        self.MAX_MOVEMENT = get_parm(self.devName, parms, 'MAX_MOVEMENT')
-        _MOT = get_parm(self.devName, parms, 'MOTORS')
+        # self.TIMEOUT_ERROR = get_parm(self._devName, parms, 'TIMEOUT_ERROR')
+        self.TIMEOUT_ERROR = assign_parm(self._devName, parms, 'TIMEOUT_ERROR', DEFAULT_TIMEOUT_ERROR)
+        self.MAX_MOVEMENT = get_parm(self._devName, parms, 'MAX_MOVEMENT')
+        _MOT = get_parm(self._devName, parms, 'MOTORS')
         if _MOT is not None:
             self.MOTORS = tuple(map(str, _MOT.split(', ')))
         print_log(f'Calibration motors = {self.MOTORS}')
 
-        self.__nozzle_height = assign_parm(self.devName, parms, 'NOZZLE_HEIGHT', DEFAULT_NOZZLE_HEIGHT)
-        self.__left_margin = assign_type_parm(self.devName, parms, 'LEFT_MARGIN', int, 0)
-        self.__right_margin = assign_type_parm(self.devName, parms, 'RIGHT_MARGIN', int, 0)
+        self.__nozzle_height = assign_parm(self._devName, parms, 'NOZZLE_HEIGHT', DEFAULT_NOZZLE_HEIGHT)
+        self.__left_margin = assign_type_parm(self._devName, parms, 'LEFT_MARGIN', int, 0)
+        self.__right_margin = assign_type_parm(self._devName, parms, 'RIGHT_MARGIN', int, 0)
         
 
-        self.__profiles = assign_parm(self.devName, parms, 'PROFILES', None)
+        self.__profiles = assign_parm(self._devName, parms, 'PROFILES', None)
         if self.__profiles is not None:
             if not isinstance(self.__profiles, dict):
                 print_err(f'Wrong CAM profile structure in the list: {self.__profiles}')
                 return False
             
-            print_log(f'CAM ({self.devName}) profiles: {self.__profiles} ')
+            print_log(f'CAM ({self._devName}) profiles: {self.__profiles} ')
             parm_re = re.compile(r'(\s*\d+\s*)$')
 
             for _p_name, _p_num in self.__profiles.items():
@@ -194,7 +193,7 @@ class Cam_modbus:
             print_log(f'No Modbus connection found')
             return False
         
-        self.__dev_lock.acquire()
+        self._dev_lock.acquire()
         try:
             val = [0] 
             _val = self.m_client.read_holding_registers(BUSY_REG, 1)
@@ -206,13 +205,13 @@ class Cam_modbus:
             # val = self.block_read(BUSY_REG, 1)[0]
             print_log(f'Cam ready flag {BUSY_REG} = {val})')
 
-            self.__dev_lock.release()
+            self._dev_lock.release()
             return True if not val else False
         
         except Exception as ex:
             exptTrace(ex)
             print_log(f'Reading holding register at address {BUSY_REG} failed. Exception = {ex}')
-            self.__dev_lock.release()
+            self._dev_lock.release()
             return False
         
     def to_continue(self):
@@ -299,8 +298,8 @@ class Cam_modbus:
             self.window = window
             self.motor = None
             self.start_time = time.time()
-            self.wThread = threading.Thread(target=self.CheckComThread, args=(profile,))
-            self.wThread.start()
+            self._wd = threading.Thread(target=self.CheckComThread, args=(profile,))
+            self._wd.start()
         except Exception as ex:
             exptTrace(ex)
             return False
@@ -319,8 +318,8 @@ class Cam_modbus:
         else:
             self.__abs = False
         self.start_time = time.time()
-        self.wThread = threading.Thread(target=self.ModBusComThread, args=(profile,))
-        self.wThread.start()
+        self._wd = threading.Thread(target=self.ModBusComThread, args=(profile,))
+        self._wd.start()
         return True
 
 
@@ -418,7 +417,7 @@ class Cam_modbus:
 
                 
         if self.__term_signal:
-            print_log(f'Termination CAM signal detected for {self.devName}')
+            print_log(f'Termination CAM signal detected for {self._devName}')
             self.terminateCamera()
 
         self.devNotificationQ.put(_opStatus)
@@ -481,19 +480,19 @@ class Cam_modbus:
         return True
 
     def terminateCamera(self)->bool:
-        self.__dev_lock.acquire()
+        self._dev_lock.acquire()
 
         try:
             res = self.m_client.write_single_register(CMD_TERMINATE_REG, 1)
             if not res:
                 raise Exception(f'Error terminating CAMERA, i.e. writing value 1 at address {CMD_TERMINATE_REG}')
                 
-            self.__dev_lock.release()
+            self._dev_lock.release()
             return True
         
         except Exception as ex:
             exptTrace(ex) 
-            self.__dev_lock.release()
+            self._dev_lock.release()
             return False
 
     def calibrationStep(self)  -> camRes:
@@ -559,6 +558,18 @@ class Cam_modbus:
             exptTrace(ex)
             return camRes(res=False, dist=0)
         
+    # operateDevice method is used to operate various device functions
+    # depending on command (passed as a string) and various parameters (passed as kwards)
+    # returns tuple (operation result: bool, blocking/non-blocking mode: bool)
+    def operateDevice(self, command:str, **kwards)-> tuple[bool, bool]:
+                                                # various parameters possible
+                                                # using: _command = kwards['window']
+        print_log(f'CAM ModBus operateDevice: command = {command}, kwards = {kwards}')
+        print_log(f'ERROR: Will be implemented later')
+        return False, False
+        # BUGBUG add various commands here
+
+
 
     # def CamOperation(self, profile='') -> camRes:
     #     try:

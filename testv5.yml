@@ -3,7 +3,7 @@
     Z1: MA position:35 
     12S:
         1211S:
-                PHG: ROTATE_PISTON onoff:ON
+                ROTATE_PISTON: ON
                 SYS: DELAY duration:0.5
         121P: 
             # Move front stage inside the soldering area (product is inside from previous iteration)
@@ -12,8 +12,26 @@
             Z2: MA position:196.2
             Z6: MA position:46.7
 
-20P: # In this parallel we removing feeding the BACK stage and working on FRONT stage
 
+# 100000P: # EXAMPLE OF IF/LOOP USAGE
+#     IF: 
+#         Z1.possition >= 36:
+#             Z3: MA position:49.2
+#             Z2: MA position:196.2
+#         Z1.possition < 30:
+#             Z3: MA position:40.0            
+#         ELSE:
+#             Z3: MA position:45.0
+
+#     LOOP start:1 stop:5 step:1:
+#         IF :
+#             Z1.possition > 40 360:
+#                 SYS: BREAK
+
+#         SYS: DELAY duration:1 
+#         Z1: MA position:35
+
+20P: # In this parallel we removing feeding the BACK stage and working on FRONT stage
     21S:   #Handling removing\feeding from\of back stage
         MCDMC: MOVESAFE p3d:BACK_PICK_PRODUCT
         211P:
@@ -23,5 +41,5 @@
                 MCDMC: MOVEREL x:0 y:7 z:0 gamma:0 velocity:1          
         SYS: DELAY duration:0.2
         # if picked - remove part
-        PHG: ALARM # vision didnt detect product, press resume to try to pick
+        ALARM: TRIG # vision didnt detect product, press resume to try to pick
         G1: CLOSE

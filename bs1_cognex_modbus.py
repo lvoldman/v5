@@ -19,7 +19,7 @@ import threading
 from threading import Lock
 from queue import Queue 
 from collections import namedtuple
-from typing import List
+from bs1_base_motor import BaseDev
 
 from numpy import uint32
 
@@ -125,7 +125,7 @@ _statFields = ['wrong_products', 'up_side_down', 'out_of_range', 'valid_products
 statisticData = namedtuple("statisticData",  _statFields, defaults=[0,] * len(_statFields))
 statisticData.__annotations__={'wrong_products':int, 'up_side_down':int, 'out_of_range':int, 'valid_products':int} 
 
-class CognexCAM:
+class CognexCAM(BaseDev):
     @staticmethod
     def find_device(t_ip, t_port, _unit_id = 1) -> bool:
         try:
@@ -164,9 +164,9 @@ class CognexCAM:
         self.wd:threading.Thread = None
         self.__last_status_update_time = 0
         self.__stored_online_status = False
-        self.available_parts:List[_partPos] = list()
-        self.unavailable_parts:List[_partPos] = list()
-        self.wrong_parts:List[_partPos] = list()
+        self.available_parts:list[_partPos] = list()
+        self.unavailable_parts:list[_partPos] = list()
+        self.wrong_parts:list[_partPos] = list()
 
         self.__wrong_products:int = 0
         self.__up_side_down:int = 0
@@ -210,10 +210,10 @@ class CognexCAM:
             return None
         
         try:
-            val:List[int] = [0]*2
+            val:list[int] = [0]*2
             _start_time = time.time()
             while abs(time.time() - _start_time) < MODBUS_TIMEOUT:
-                _tmp_val:List[int] = [0]*2
+                _tmp_val:list[int] = [0]*2
                 _tmp_val = self.m_client.read_holding_registers(VISION_STATUS, 2)
                 if _tmp_val is None:
                     time.sleep(MODBUS_POLING_STEP)
@@ -260,10 +260,10 @@ class CognexCAM:
                 
 
         try:
-            val:List[int] = [0] * 2
+            val:list[int] = [0] * 2
             _start_time = time.time()
             while abs(time.time() - _start_time) < MODBUS_TIMEOUT:
-                _tmp_val:List[int] = [0]*2
+                _tmp_val:list[int] = [0]*2
                 _tmp_val = self.m_client.read_holding_registers(VISION_CONTROL, 2)
                 if _tmp_val is None:
                     time.sleep(MODBUS_POLING_STEP)
