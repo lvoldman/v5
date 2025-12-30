@@ -266,8 +266,10 @@ if __name__ == '__main__':
     # AMS_NETID = '192.168.1.10.1.1'
     AMS_NETID = '192.168.10.92.1.1'
 
-
-
+    # test with coining PLC
+    #   
+    remote_ip = '192.168.10.96'
+    AMS_NETID = '192.168.10.96.1.1'
     
 
     def _watch_dog_thread(_adsCom:commADS, execution_id:int, _index:int):
@@ -295,36 +297,14 @@ if __name__ == '__main__':
         _adsCom = commADS(ams_net_id=AMS_NETID, remote_ip_address=remote_ip)
         _num_of_devs:int = _adsCom.readVar('G_Constant.MaxNumOfDrivers')
         print(f'Number of devices = {_num_of_devs}')
-        # for i, _ in enumerate(range(_num_of_devs)):
-        #     _symb_dev_name = f'G_System.fbExternalAPI.arDeviceInfo[{i+1}].DeviceName'
-        #     _dev_name:str = str()
-        #     # _dev_name = _adsCom.readVar(_symb_dev_name, variable=_dev_name)
-        #     _dev_name = _adsCom.readVar(_symb_dev_name, var_type=str)
-        #     if _dev_name.strip() == '':
-        #         break
-        #     _sym_dev = f'G_System.fbExternalAPI.arDeviceInfo[{i+1}].API'
 
-        #     a:type = str
-        #     _dev_API:str = str()
-        #     # _dev_API = _adsCom.readVar( _sym_dev, variable=_dev_API, size=4000 )
-        #     _dev_API = _adsCom.readVar( _sym_dev, var_type=str, size=4000 )
+        # print info about all devices
+        for i, _ in enumerate(range(_num_of_devs)):
+            pass
 
 
-        #     _sym_info = f'G_System.fbExternalAPI.arDeviceInfo[{i+1}].DeviceInfo'
-        #     _dev_INFO:str = str()
-        #     # _dev_INFO = _adsCom.readVar( _sym_info, variable=_dev_INFO, size=1024 )
-        #     _dev_INFO = _adsCom.readVar( _sym_info, var_type=str, size=1024 )
 
-        #     _sym_state = f'G_System.fbExternalAPI.arDeviceInfo[{i+1}].State'
-        #     _dev_STATE:int=0
-        #     # _dev_STATE = _adsCom.readVar( _sym_state, variable=_dev_STATE )
-        #     _dev_STATE = _adsCom.readVar( _sym_state, var_type=int )    
-
-        #     print(f'\n>>>>>>Device[{i+1}] Name={_dev_name}<<<<<<<')
-        #     print(f'Device[{i+1}]({len(_dev_API)}bytes) API={_dev_API}  ')
-        #     print(f'Device[{i+1}] INFO={_dev_INFO}  ')
-        #     print(f'Device[{i+1}] STATE={_dev_STATE}  ')
-
+        sys.exit()
 
         sym_exData = 'G_System.fbExternalAPI.ExecutionInfo'
         send_exData:dict = \

@@ -8,6 +8,7 @@ __maintainer__ = "Leonid Voldman"
 __email__ = "vleonid@voldman.com"
 __status__ = "Tool"
 
+import sys
 from threading import Lock
 import threading
 from queue import Queue 
@@ -112,11 +113,14 @@ class PLCDev(BaseDev):
                 
             _tmpINFO = PLCDev.__ads.readVar(symbol_name=f'{symbolsADS._device_access}[{self._dev_idx}]._instanceInfo', var_type=str, size=DEV_INFO_SIZE)
             _tmpAPI = PLCDev.__ads.readVar(symbol_name=f'{symbolsADS._device_access}[{self._dev_idx}]._API', var_type=str, size=DEV_API_SIZE)
+            print_log(f'[device {self._devName}] PLCDev read _instanceInfo and _API from PLC for device index = {self._dev_idx}: ')
+            print_log(f'[device {self._devName}] _instanceInfo = {_tmpINFO}')
+            print_log(f'[device {self._devName}] _API = {_tmpAPI}') 
 
             self.__devINFO = (json.loads(_tmpINFO) if _tmpINFO is not None else None) 
             self.__devAPI = (json.loads(_tmpAPI) if _tmpAPI is not None else None)
 
-            print_log(f'[device {self._devName}] PLCDev initialized. Device index = {self._dev_idx}, devAPI size = {len(self.__devAPI) if self.__devAPI is not None else 0}, devINFO size = {len(self.__devINFO) if self.__devINFO is not None else 0} / {self.__devINFO} ')
+            print_log(f'[device {self._devName}] PLCDev initialized. Device index = {self._dev_idx}, devAPI size = {len(self.__devAPI) if self.__devAPI is not None else 0} / {self.__devAPI}, devINFO size = {len(self.__devINFO) if self.__devINFO is not None else 0} / {self.__devINFO} ')
 
             if PLCDev.__number_of_runners is None:   # initialize number of runners
                 PLCDev.__number_of_runners = PLCDev.__ads.readVar(symbol_name=symbolsADS._max_number_of_runners, var_type=int)
@@ -484,12 +488,24 @@ if __name__ == "__main__":
     AMS_NETID = '192.168.10.92.1.1'
     '''
 
-    REMOTE_IP = '192.168.10.153'
-    AMS_NETID = '192.168.137.1.1.1'
+    # REMOTE_IP = '192.168.10.153'
+    # AMS_NETID = '192.168.137.1.1.1'
+
+    REMOTE_IP = '192.168.10.96'
+    AMS_NETID = '192.168.10.96.1.1'
 
 
     _ads = commADS(AMS_NETID, REMOTE_IP )
+    _devs:list[PLCDev] = list()
 
+    devLst:list = PLCDev.enum_devs(_comADS=_ads)
+    for i, devName in enumerate(devLst):
+        print(f'[UNITEST]Creating PLCDev instance for device {i}: {devName}')
+        _tmpDev = PLCDev(dev_name = devName,  _comADS=_ads)
+        _devs.append(_tmpDev)   
+
+
+    sys.exit(0)
 
     # testData:dict = {
     #     "InstanceName": "Stages_AxisX",

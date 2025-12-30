@@ -17,7 +17,6 @@ import threading
 from threading import Lock
 from queue import Queue 
 from collections import namedtuple
-from typing import List
 import PySimpleGUI as sg
 
 
@@ -178,9 +177,9 @@ class Cam_modbus(BaseDev):
 
 
 
-    def block_read(self, key, _size) -> List[bytes]:
-        # val:List[bytes] = list(READ_BLOCK_SIZE)
-        val:List[bytes] = [0]* READ_BLOCK_SIZE
+    def block_read(self, key, _size) -> list[bytes]:
+        # val:list[bytes] = list(READ_BLOCK_SIZE)
+        val:list[bytes] = [0]* READ_BLOCK_SIZE
         val = self.m_client.read_holding_registers(START_READ_BLOCK, READ_BLOCK_SIZE)
         _index = key - START_READ_BLOCK
         print_log(f'DEBUG: key = {key}, _index = {_index}, size = {_size}, read data = {val[_index:_index + _size]}')
