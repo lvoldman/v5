@@ -21,6 +21,8 @@ from queue import Queue
 from collections import namedtuple
 from isHex import isHex, isHexUpper, isHexLower
 from bs1_base_motor import BaseMotor
+from bs2_DSL_cmd import Command, devCmdCnfg, vType, pType
+
 from enum import Enum
 
 from bs1_utils import print_log, print_inf, print_err, print_DEBUG, exptTrace, s16, s32, set_parm, get_parm, unsigned_16 
@@ -213,6 +215,34 @@ class DH_ROB_RGI_modbus (BaseMotor):
 
 
         return True
+        
+    def operateDevice(self, command, **kwards) -> tuple[bool, bool]:
+        try:
+            _cmd = Command(command)
+
+            if _cmd.device != self._devName:        # device name mismatch
+                raise Exception(f'({self._devName}) operateDevice: command device {_cmd.device} mismatch with actual device name {self._devName}.')
+            if _cmd.op == 'HO':
+                self.mDev_reset_pos(), False        # home operation, reset position to zero
+            elif _cmd.op == 'MA':
+                return self.go2pos(new_position=_cmd.args.get('position', 0), velocity=_cmd.args.get('velocity', None)), True
+                                                    # absolute move to position
+            elif _cmd.op == 'MR':
+                return self.go2pos(new_position=self._mDev_pos + _cmd.args.get('rel_position', 0), velocity=_cmd.args.get('velocity', None)), True
+                                                    # relative move to position
+            elif _cmd.op == 'OPEN':
+                return self.gripper_on(), True        # open gripper
+            elif _cmd.op == 'CLOSE':
+                return self.gripper_off(), True       # close gripper
+            elif _cmd.op == 'STOP':
+                return self.mDev_stop(), False        # stop device
+            else:
+                raise Exception(f'({self._devName}) operateDevice: unknown command operation {_cmd.op} for device {self._devName}.')    
+
+        except Exception as ex:
+            exptTrace(ex)
+            print_err(f'({self._devName}) failed to operate command {command} for device on port {self._mDev_port}. Exception: {ex} of type: {type(ex)}.')
+            return False, False
         
 
     def  mDev_watch_dog_thread(self):

@@ -21,8 +21,8 @@ from queue import Queue
 
 from typing import TYPE_CHECKING
 
-from bs2_DSL_cmd import DevType
-
+from bs1_base_motor import BaseMotor
+from bs2_DSL_cmd import DevType, Command, devCmdCnfg, vType, pType
 
 from bs1_utils import print_log, print_inf, print_err, print_DEBUG, exptTrace, s16, s32, set_parm, get_parm 
 
@@ -189,8 +189,9 @@ def FH_cmd(ser, i_cmd, lock = None):
         return res, answ
 
 
-class FH_Motor: 
+class FH_Motor(BaseMotor): 
     def __init__(self, c_port, c_baudrate, c_timeout, parms, devName, cur_pos = 0, fh_break_duration = 0.25):
+        super().__init__(port=c_port, devName=devName, parms=parms)
 #############################         parameters per device
         self.MEASUREMENT_DELAY:float = 0.25
         self.MINIMAL_OP_DURATION:float = 0.25
@@ -203,55 +204,35 @@ class FH_Motor:
         self.SPINNER_DEFAULT_CURRENT_LIMIT:int = 120
         self.DEFAULT_CURRENT_LIMIT:int = 300
         self.DEAFULT_VELOCITY_EV_VOLTAGE:int = 5000
-        # self.DevMaxSPEED:int = 840
-        # self.DevOpSPEED:int = 640
 # for compitability
         self.DevMaxSPEED:int = 15000
         self.DevOpSPEED:int = 640
 #################################
-        self.fh_port = c_port                               # COM port
         self.mDev_baudrate = c_baudrate                       # baudrate
         self.mDev_timeout = c_timeout                         # COM timeout
         self.mDev_ser = None                                  # serial port identificator
-        self.mDev_type = None                                 # devise type (trolley / gripper)
-        self.mDev_pos = cur_pos                               # POS command - current position 
-        self.el_current_limit = None                        # electrical current limit to stop 
-        self.el_current_on_the_fly = None                  # On-the-fly current                    
-        self.wd = None                                      # watch dog identificator
-        self.mDev_SN = None                                   # GSER cmd - serial N
-        self.mDev_status = False                              # device status (bool) / used for succesful initiation validation
-        self.mDev_in_motion = False                           # is device in motion
-        self.possition_control_mode = False                 # TRUE - control possition, FALSE - don't
-        self.time_control_mode = False                      # TRUE - time control
+        self.mDev_type: DevType = None                                 # devise type (trolley / gripper)
         self.new_pos = 0
         # self.mDev_cur_pos = cur_pos
-        self.mDev_pressed = False                             # is motion button pressed
         self.fh_lock = Lock()                               # COM port access mutex 
-        self.gripper_onof = True                            # True means off )))
 #------- Bad practice --------
         self.el_voltage = self.DEAFULT_VELOCITY_EV_VOLTAGE
         self.rpm = self.DEAFULT_TROLLEY_RPM 
 #------- Bad practice --------
-        self.start_time = None                              # Start thread time
-        self.success_flag = True                            # end of op flag
         self.__stall_flag = False                           # stall after motion flag
-        self.rotationTime:float = 0                               # rotation time
-        self.devName = devName
-        self.__title = None
-        self.dev_lock = Lock()
-        self.devNotificationQ = Queue()
+        self._title = None
 
 
 
         try:
-            self.mDev_ser = serial.Serial(port = self.fh_port, baudrate = self.mDev_baudrate, timeout = self.mDev_timeout)
+            self.mDev_ser = serial.Serial(port = self._mDev_port, baudrate = self.mDev_baudrate, timeout = self.mDev_timeout)
             self.mDev_name = self.mDev_ser.name
             print_log (f"name = {self.mDev_name}")
             self.mDev_ser.send_break(duration = fh_break_duration)                  
             answ = self.mDev_ser.readline()
             print_log(f'({ self.devName}) Serial port init returns - {answ}')
             if not answ.__str__().__contains__("FAULHABER"):
-                print_err(f'FAULHABBER on port {self.fh_port} is NOT ACTIVE')
+                print_err(f'FAULHABBER on port {self._mDev_port} is NOT ACTIVE')
                 return                                  # no valid FAULHABBER motor can be added
 
             res, answ = FH_cmd(self.mDev_ser, 'en', self.fh_lock)
@@ -262,38 +243,16 @@ class FH_Motor:
            
             res, answ = FH_cmd(self.mDev_ser, 'GSER', self.fh_lock)
             serN = int(answ)
-            # self.mDev_ser.mDev_SN = serN
-            self.mDev_SN = serN
+            # self.mDev_ser._mDev_SN = serN
+            self._mDev_SN = serN
             print_log(f'Serial number = {answ}/{serN}')
 
             res, answ = FH_cmd(self.mDev_ser, 'POS', self.fh_lock)
 
-            self.mDev_pos = int(answ)
-            print_log(f'Current actual position = {answ}/{self.mDev_pos}')
+            self._mDev_pos = int(answ)
+            print_log(f'Current actual position = {answ}/{self._mDev_pos}')
 
             res, answ = FH_cmd(self.mDev_ser, 'di', self.fh_lock)
-
-#             self.MEASUREMENT_DELAY = parms[devName]['MEASUREMENT_DELAY'] if ((devName in parms.keys()) and ('MEASUREMENT_DELAY' in parms[devName].keys())) else parms['DEAFULT']['MEASUREMENT_DELAY']
-#             self.MINIMAL_OP_DURATION = parms[devName]['MINIMAL_OP_DURATION'] if ((devName in parms.keys()) and ('MINIMAL_OP_DURATION' in parms[devName].keys())) else parms['DEAFULT']['MINIMAL_OP_DURATION']
-#             self.GRIPPER_TIMEOUT  = parms[devName]['GRIPPER_TIMEOUT'] if ((devName in parms.keys()) and ('GRIPPER_TIMEOUT' in parms[devName].keys())) else parms['DEAFULT']['GRIPPER_TIMEOUT']
-#             self.TROLLEY_PARKING_VELOCITY = parms[devName]['TROLLEY_PARKING_VELOCITY'] if ((devName in parms.keys()) and ('TROLLEY_PARKING_VELOCITY' in parms[devName].keys())) else parms['DEAFULT']['TROLLEY_PARKING_VELOCITY']
-#                                                                                                 #  velocity to set at parking stage
-#             self.DEFAULT_ROTATION_TIME = parms[devName]['DEFAULT_ROTATION_TIME'] if ((devName in parms.keys()) and ('DEFAULT_ROTATION_TIME' in parms[devName].keys())) else parms['DEAFULT']['DEFAULT_ROTATION_TIME']
-#             self.DEAFULT_VELOCITY_EV_VOLTAGE = parms[devName]['DEAFULT_VELOCITY_EV_VOLTAGE'] if ((devName in parms.keys()) and ('DEAFULT_VELOCITY_EV_VOLTAGE' in parms[devName].keys())) else parms['DEAFULT']['DEAFULT_VELOCITY_EV_VOLTAGE']
-#             self.DEAFULT_TROLLEY_RPM = parms[devName]['DEAFULT_TROLLEY_RPM'] if ((devName in parms.keys()) and ('DEAFULT_TROLLEY_RPM' in parms[devName].keys())) else parms['DEAFULT']['DEAFULT_TROLLEY_RPM']
-#             self.TROLLEY_DEFAULT_CURRENT_LIMIT = parms[devName]['TROLLEY_DEFAULT_CURRENT_LIMIT'] if ((devName in parms.keys()) and ('TROLLEY_DEFAULT_CURRENT_LIMIT' in parms[devName].keys())) else parms['DEAFULT']['TROLLEY_DEFAULT_CURRENT_LIMIT']
-#             self.GRIPPER_DEFAULT_CURRENT_LIMIT = parms[devName]['GRIPPER_DEFAULT_CURRENT_LIMIT'] if ((devName in parms.keys()) and ('GRIPPER_DEFAULT_CURRENT_LIMIT' in parms[devName].keys())) else parms['DEAFULT']['GRIPPER_DEFAULT_CURRENT_LIMIT']
-#             self.SPINNER_DEFAULT_CURRENT_LIMIT = parms[devName]['SPINNER_DEFAULT_CURRENT_LIMIT'] if ((devName in parms.keys()) and ('SPINNER_DEFAULT_CURRENT_LIMIT' in parms[devName].keys())) else parms['DEAFULT']['SPINNER_DEFAULT_CURRENT_LIMIT']
-# # for compitability
-#             self.DevMaxSPEED = parms[devName]['DevMaxSPEED'] if ((devName in parms.keys()) and ('DevMaxSPEED' in parms[devName].keys())) else parms['DEAFULT']['DevMaxSPEED']
-#             self.DevOpSPEED  = parms[devName]['DevOpSPEED'] if ((devName in parms.keys()) and ('DevOpSPEED' in parms[devName].keys())) else parms['DEAFULT']['DevOpSPEED']
-            
-#             self.__title = get_parm(devName, parms, 'TITLE')
-
-
-#             self.el_voltage =  self.DEAFULT_VELOCITY_EV_VOLTAGE
-#             self.DevOpSPEED = self.DEAFULT_TROLLEY_RPM
-#             self.rpm = self.DEAFULT_TROLLEY_RPM 
 
 
             self.set_parms(parms=parms)
@@ -303,12 +262,12 @@ class FH_Motor:
 
         except Exception as ex:
             e_type, e_filename, e_line_number, e_message = exptTrace(ex)
-            print_err(f"Connection to port {self.fh_port} was lost")
+            print_err(f"Connection to port {self._mDev_port} was lost")
             print_err(f"Unexpected Exception: {ex}")
             return                                  # no valid FAULHABBER motor can be added
         
         else:
-            self.mDev_status = True
+            self._mDev_status = True
             pass
 
         finally:
@@ -317,20 +276,20 @@ class FH_Motor:
         
 
     def __del__(self):
-        print_log(f'Exiting FAULHABER on port {self.fh_port}')
-        self.mDev_in_motion = False
+        print_log(f'Exiting FAULHABER on port {self._mDev_port}')
+        self._mDev_in_motion = False
         try:
             if not self.mDev_ser == None:
                 _cmd = 'di'                             # disable motor
                 res, answ = FH_cmd(self.mDev_ser, _cmd, self.fh_lock)
-                print_log(f'({ self.devName}) FAULHABER disabled on port {self.fh_port}.')
+                print_log(f'({ self.devName}) FAULHABER disabled on port {self._mDev_port}.')
                 # self.mDev_ser.__del__()
                 # del self.mDev_ser
                 self.mDev_ser.close()
 
         except  Exception as ex:
             e_type, e_filename, e_line_number, e_message = exptTrace(ex)
-            print_err(f'({ self.devName}) FAULHABER on port {self.fh_port} could not be closed. Exception: {ex} of type: {type(ex)}.')
+            print_err(f'({ self.devName}) FAULHABER on port {self._mDev_port} could not be closed. Exception: {ex} of type: {type(ex)}.')
         finally:
             pass
 
@@ -377,66 +336,118 @@ class FH_Motor:
         return str(serN)
 
 
-    def init_dev(self, fh_type) -> bool:
+    def init_dev(self, fh_type: DevType) -> bool:
         self.mDev_type = fh_type
         
-        if not self.mDev_status:                      # the device is not active
+        if not self._mDev_status:                      # the device is not active
             return False
 
-        print_log(f'Initiating ({ self.devName}) devise of {self.mDev_type} type on port {self.fh_port}')
+        print_log(f'Initiating ({ self.devName}) devise of {self.mDev_type} type on port {self._mDev_port}')
         try:
             if self.mDev_type == DevType.TROLLEY:
-                self.el_current_limit = self.TROLLEY_DEFAULT_CURRENT_LIMIT
+                self._el_current_limit = self.TROLLEY_DEFAULT_CURRENT_LIMIT
                 for _cmd in TROLLEY_INIT_CMD:
                     res, answ = FH_cmd(self.mDev_ser, _cmd, self.fh_lock)
-                    print_log (f"Port= {self.fh_port},  init command =  {_cmd.encode('utf-8')} with res=  {res} and reply = {answ}" )
+                    print_log (f"Port= {self._mDev_port},  init command =  {_cmd.encode('utf-8')} with res=  {res} and reply = {answ}" )
             elif self.mDev_type == DevType.GRIPPER:
-                self.el_current_limit = self.GRIPPER_DEFAULT_CURRENT_LIMIT
+                self._el_current_limit = self.GRIPPER_DEFAULT_CURRENT_LIMIT
                 for _cmd in GRIPPER_INIT_CMD:
                     res, answ = FH_cmd(self.mDev_ser, _cmd, self.fh_lock)
-                    print_log (f"Port= {self.fh_port},  init command =  {_cmd.encode('utf-8')} with res=  {res} and reply = {answ}" )
+                    print_log (f"Port= {self._mDev_port},  init command =  {_cmd.encode('utf-8')} with res=  {res} and reply = {answ}" )
 
             elif self.mDev_type == DevType.TIME_ROTATOR:
-                self.rotationTime = self.DEFAULT_ROTATION_TIME
-                self.el_current_limit = self.SPINNER_DEFAULT_CURRENT_LIMIT
+                self._rotationTime = self.DEFAULT_ROTATION_TIME
+                self._el_current_limit = self.SPINNER_DEFAULT_CURRENT_LIMIT
                 for _cmd in GRIPPER_INIT_CMD:
                     res, answ = FH_cmd(self.mDev_ser, _cmd, self.fh_lock)
-                    print_log (f"Port= {self.fh_port},  init command =  {_cmd.encode('utf-8')} with res=  {res} and reply = {answ}" )
+                    print_log (f"Port= {self._mDev_port},  init command =  {_cmd.encode('utf-8')} with res=  {res} and reply = {answ}" )
 
 
         except Exception as ex:
             e_type, e_filename, e_line_number, e_message = exptTrace(ex)
-            print_log(f'FAULHABER initiation on port {self.fh_port} failed on cmd = {_cmd}. Exception: {ex} of type: {type(ex)}.')
+            print_log(f'FAULHABER initiation on port {self._mDev_port} failed on cmd = {_cmd}. Exception: {ex} of type: {type(ex)}.')
             return False
 
         return True
 
-    def  mDev_watch_dog_thread(self):
-        print_log (f'>>> Watch dog started on port = {self.mDev_ser.port}/{self.fh_port},  dev = {self.devName}, position = {self.mDev_pos}')
-        time.sleep(self.MEASUREMENT_DELAY)    
-        self.success_flag = True             # waif for a half of sec
+    def operateDevice(self, command, **kwards) -> tuple[bool, bool]:
+        try:
+            _cmd = Command(command)
+            if _cmd.device != self.devName:
+                raise Exception(f'({self.devName}) Device missmatch: FAULHABER operateDevice received command {command} for device {_cmd.device}')
+            if _cmd.op == 'HO':                 #  HO = home operation
+                return self.mDev_reset_pos(), False
+            elif _cmd.op == 'MA':               #  MA = move to absolute position    
+                if self.mDev_type == DevType.TROLLEY:
+                    self.new_pos = _cmd.args.get('position', 0)
+                    print_log (f'({self.devName}) FAULHABER operateDevice command {command} set new position to {self.new_pos} ')
+                    self.go2pos(self.new_pos, 
+                                velocity= _cmd.args.get('velocity', None),
+                                stall = _cmd.args.get('stall', None))
+                else:
+                    raise Exception(f'({self.devName}) FAULHABER operateDevice command {command} invalid for FAULHABER device of type {self.mDev_type}')
+ 
+            elif _cmd.op == 'ML':           # for TROLLEY faulhaber ML (Move Left) = MA current position + dest position
+                if self.mDev_type == DevType.TROLLEY:
+                    self.new_pos = self.mDev_get_cur_pos() + _cmd.args.get('position', 0)
+                    print_log (f'({self.devName}) FAULHABER operateDevice command {command} set new position to {self.new_pos} ')
+                else:                       # for other devices ML = move left untill current limit reached
+                    pass
+            elif _cmd.op == 'MR':          # for TROLLEY faulhaber MR (Move Right) = MA current position - dest position
+                if self.mDev_type == DevType.TROLLEY:
+                    self.new_pos = self.mDev_get_cur_pos() - _cmd.args.get('position', 0)
+                    print_log (f'({self.devName}) FAULHABER operateDevice command {command} set new position to {self.new_pos} ')   
+                else:                       # for other devices MR = move right untill current limit reached
+                    pass                    
+            elif _cmd.op == 'MLC':          # no MLC for faulhaber
+                raise Exception(f'({self.devName}) FAULHABER operateDevice command {command} invalid for FAULHABER device')
+            elif _cmd.op == 'MRC':          # no MRC for faulhaber
+                raise Exception(f'({self.devName}) FAULHABER operateDevice command {command} invalid for FAULHABER device')
+            elif _cmd.op == 'REL':
+                pass
+            elif _cmd.op == 'STALL':
+                pass
+            elif _cmd.op == 'OPEN':
+                pass
+            elif _cmd.op == 'CLOSE':
+                pass
+            elif _cmd.op == 'STOP':
+                pass
+            else:
+                raise Exception(f'({self.devName}) FAULHABER operateDevice command {command} unknown for FAULHABER device') 
+        
+                
+        except Exception as ex:
+            e_type, e_filename, e_line_number, e_message = exptTrace(ex)
+            print_err(f'({self.devName}) FAULHABER operateDevice command {command} failed. Exception: {ex} of type: {type(ex)}.')
+            return False, False
 
-        self.mDev_in_motion = True
+    def  mDev_watch_dog_thread(self):
+        print_log (f'>>> Watch dog started on port = {self.mDev_ser.port}/{self._mDev_port},  dev = {self.devName}, position = {self._mDev_pos}')
+        time.sleep(self.MEASUREMENT_DELAY)    
+        self._success_flag = True             # waif for a half of sec
+
+        self._mDev_in_motion = True
         max_GRC = 0
-        while (self.mDev_in_motion):
+        while (self._mDev_in_motion):
             try:
                 fh_cmd = 'GRC'
                 res, answ = FH_cmd(self.mDev_ser, fh_cmd, self.fh_lock)
 
-                # print_log (f"Port= {self.fh_port},  GRC command =  {fh_cmd.encode('utf-8')} with res=  {res} and reply = {answ}" )
+                # print_log (f"Port= {self._mDev_port},  GRC command =  {fh_cmd.encode('utf-8')} with res=  {res} and reply = {answ}" )
                 _cur_answ = answ.decode('utf-8').strip()
                 # if isinstance(_cur_answ, int):
                 if _cur_answ.isdigit():
-                    self.el_current_on_the_fly = int(_cur_answ)
+                    self._el_current_on_the_fly = int(_cur_answ)
                 
-                    max_GRC = self.el_current_on_the_fly if self.el_current_on_the_fly > max_GRC else max_GRC
-                    if (self.el_current_on_the_fly > int(self.el_current_limit)):
-                        print_log(f'GRC = {self.el_current_on_the_fly}, Limit = {self.el_current_limit}')
-                        if (self.mDev_type == DevType.TROLLEY ) and self.possition_control_mode:
+                    max_GRC = self._el_current_on_the_fly if self._el_current_on_the_fly > max_GRC else max_GRC
+                    if (self._el_current_on_the_fly > int(self._el_current_limit)):
+                        print_log(f'GRC = {self._el_current_on_the_fly}, Limit = {self._el_current_limit}')
+                        if (self.mDev_type == DevType.TROLLEY ) and self._possition_control_mode:
                                 _pos = self.mDev_get_cur_pos()
                                 if abs(_pos - self.new_pos) > EX_LIMIT:
                                     print_log(f'Desired position [{self.new_pos}] is not reached. Current position = {_pos}')
-                                    self.success_flag = False
+                                    self._success_flag = False
                         break
                 else:
                     _pos = self.mDev_get_cur_pos()
@@ -447,8 +458,8 @@ class FH_Motor:
 
                 if self.mDev_type == DevType.GRIPPER:
                     end_time = time.time()
-                    if end_time - self.start_time > self.GRIPPER_TIMEOUT:
-                        print_log(f'GRIPPER operation canceled by timeout, port = {self.fh_port}, current GRC = {int(answ)}, Limit = {self.el_current_limit}, max GRC = {max_GRC} ')
+                    if end_time - self._start_time > self.GRIPPER_TIMEOUT:
+                        print_log(f'GRIPPER operation canceled by timeout, port = {self._mDev_port}, current GRC = {int(answ)}, Limit = {self._el_current_limit}, max GRC = {max_GRC} ')
                         self.mDev_ser.send_break(duration = 0.25)                  
                         answ = self.mDev_ser.readline()
                         print_log(f'Serial port init break returns - {answ}')
@@ -456,24 +467,24 @@ class FH_Motor:
 
                 if self.mDev_type == DevType.TIME_ROTATOR:
                     end_time = time.time()
-                    if end_time - self.start_time > self.rotationTime:
-                        print_log(f' WatchDog FAULHABER: TIME ROTATOR operation completed, port = {self.fh_port}, current GRC = {int(answ)}, Limit = {self.el_current_limit}, max GRC = {max_GRC} ')
+                    if end_time - self._start_time > self._rotationTime:
+                        print_log(f' WatchDog FAULHABER: TIME ROTATOR operation completed, port = {self._mDev_port}, current GRC = {int(answ)}, Limit = {self._el_current_limit}, max GRC = {max_GRC} ')
                         break
 
 
-                if self.mDev_type == DevType.TROLLEY and self.possition_control_mode :
+                if self.mDev_type == DevType.TROLLEY and self._possition_control_mode :
                     fh_cmd = 'OST'
                     res, answ = FH_cmd(self.mDev_ser, fh_cmd, self.fh_lock)
                     fh_op_status = int (answ)
-                    # print_log(f'Operational status on FH  port {self.fh_port} = {bin(fh_op_status)}/{fh_op_status}')
+                    # print_log(f'Operational status on FH  port {self._mDev_port} = {bin(fh_op_status)}/{fh_op_status}')
                     if fh_op_status & 0b00010000000000000000:        # Position attained - 000 1000 0000 0000 00000 = 65536
-                        print_log(f'Operational status on FH  port {self.fh_port} = {bin(fh_op_status)}/{fh_op_status}')
+                        print_log(f'Operational status on FH  port {self._mDev_port} = {bin(fh_op_status)}/{fh_op_status}')
                         break
 
             except Exception as ex:
                 e_type, e_filename, e_line_number, e_message = exptTrace(ex)
-                print_log(f'WatchDog FAULHABER failed on port = {self.mDev_ser.port}/{self.fh_port}. Exception: {ex} of type: {type(ex)}.')
-                self.success_flag = False
+                print_log(f'WatchDog FAULHABER failed on port = {self.mDev_ser.port}/{self._mDev_port}. Exception: {ex} of type: {type(ex)}.')
+                self._success_flag = False
                 break
             finally:
                 pass
@@ -482,37 +493,37 @@ class FH_Motor:
 
             
         end_time = time.time()
-        print_log (f'>>> Watch dog completed on port = {self.mDev_ser.port}/{self.fh_port},  dev = {self.devName}, position = {self.mDev_pos}')
-        print_log(f'Start time = {self.start_time}, end time ={end_time}, delta = {end_time - self.start_time}')
-        if end_time - self.start_time - self.MEASUREMENT_DELAY < self.MINIMAL_OP_DURATION:
+        print_log (f'>>> Watch dog completed on port = {self.mDev_ser.port}/{self._mDev_port},  dev = {self.devName}, position = {self._mDev_pos}')
+        print_log(f'Start time = {self._start_time}, end time ={end_time}, delta = {end_time - self._start_time}')
+        if end_time - self._start_time - self.MEASUREMENT_DELAY < self.MINIMAL_OP_DURATION:
             print_log(f'Abnormal FAULHABER termination on port = {self.mDev_ser.port}')
-            self.success_flag = False
+            self._success_flag = False
 
     
         if self.__stall_flag:
             self.mDev_stall()
-        elif self.mDev_in_motion:
+        elif self._mDev_in_motion:
             self.mDev_stop()
 
 
         
-        if self.dev_lock.locked():
-            self.dev_lock.release()
+        if self._dev_lock.locked():
+            self._dev_lock.release()
         else:
             print_err(f'-WARNING unlocket mutual access mutex')
 
         self.mDev_get_cur_pos()
-        self.devNotificationQ.put(self.success_flag)
+        self.devNotificationQ.put(self._success_flag)
 
 
         return
     
 
     def  mDev_watch_dog(self):
-        self.start_time = time.time()
-        self.wd = threading.Thread(target=self.mDev_watch_dog_thread)
-        self.wd.start()
-        return self.wd
+        self._start_time = time.time()
+        self._wd = threading.Thread(target=self.mDev_watch_dog_thread)
+        self._wd.start()
+        return self._wd
     
     def mDev_stall(self):
 
@@ -531,21 +542,21 @@ class FH_Motor:
                 raise Exception (f'FAULHABER ilegal type on stalling op')
 
             
-            self.mDev_in_motion = False
+            self._mDev_in_motion = False
         # try:
             for fh_cmd in cmd_seq:
                 res, answ = FH_cmd(self.mDev_ser, fh_cmd, self.fh_lock)
-                print_log (f"Port= {self.fh_port},  forward command =  {fh_cmd.encode('utf-8')} with res=  {res} and reply = {answ}" )
+                print_log (f"Port= {self._mDev_port},  forward command =  {fh_cmd.encode('utf-8')} with res=  {res} and reply = {answ}" )
                 
             res, answ = FH_cmd(self.mDev_ser, fh_cmd, self.fh_lock)
 
         except Exception as ex:
             e_type, e_filename, e_line_number, e_message = exptTrace(ex)
-            print_log(f'FAULHABER stalling failed on port = {self.mDev_ser.port}/{self.fh_port}. Exception: {ex} of type: {type(ex)}.')
+            print_log(f'FAULHABER stalling failed on port = {self.mDev_ser.port}/{self._mDev_port}. Exception: {ex} of type: {type(ex)}.')
             self.__stall_flag = False
             return res, answ
         else:
-            print_log (f"FAULHABER stalled on port = {self.mDev_ser.port}/{self.fh_port} with res=  {res} and reply = {answ}" )
+            print_log (f"FAULHABER stalled on port = {self.mDev_ser.port}/{self._mDev_port} with res=  {res} and reply = {answ}" )
         
         self.__stall_flag = False
         return res, answ
@@ -560,27 +571,27 @@ class FH_Motor:
             print_log(f'FAULHABER ilegal type on stoping')
             return False
         
-        self.mDev_in_motion = False
+        self._mDev_in_motion = False
         try:
 
             if self.mDev_type == DevType.TROLLEY:
 
                 if self.__stall_flag:
                     res, answ = self.mDev_stall()
-                    print_log (f"FH motor STALLED on port= {self.fh_port}  with res=  {res} and reply = {answ}" )
+                    print_log (f"FH motor STALLED on port= {self._mDev_port}  with res=  {res} and reply = {answ}" )
                 else:
                     en_cmd = f'DI'                          # disabling motor
                     res, answ = FH_cmd(self.mDev_ser, en_cmd, self.fh_lock)
-                    print_log (f"FH motor on port= {self.fh_port},  disabled =  {en_cmd.encode('utf-8')} with res=  {res} and reply = {answ}" )
+                    print_log (f"FH motor on port= {self._mDev_port},  disabled =  {en_cmd.encode('utf-8')} with res=  {res} and reply = {answ}" )
 
             else:
                 res, answ = FH_cmd(self.mDev_ser, fh_cmd, self.fh_lock)
         except Exception as ex:
             e_type, e_filename, e_line_number, e_message = exptTrace(ex)
-            print_log(f'FAULHABER stoping failed on port = {self.mDev_ser.port}/{self.fh_port}. Exception: {ex} of type: {type(ex)}.')
+            print_log(f'FAULHABER stoping failed on port = {self.mDev_ser.port}/{self._mDev_port}. Exception: {ex} of type: {type(ex)}.')
             return False
         else:
-            print_log (f"FAULHABER stoped on port = {self.mDev_ser.port}/{self.fh_port} with res=  {res} and reply = {answ}" )
+            print_log (f"FAULHABER stoped on port = {self.mDev_ser.port}/{self._mDev_port} with res=  {res} and reply = {answ}" )
 
         self.mDev_get_cur_pos()
         return True
@@ -589,22 +600,22 @@ class FH_Motor:
         if not self.mutualControl():
             return False
         
-        self.success_flag = True
+        self._success_flag = True
         try:
 
           
             fh_cmd = f'u {self.el_voltage}'
             res, answ = FH_cmd(self.mDev_ser, fh_cmd, self.fh_lock)
-            print_log (f"Port= {self.fh_port},  command =  {fh_cmd.encode('utf-8')} with res=  {res} and reply = {answ}" )
+            print_log (f"Port= {self._mDev_port},  command =  {fh_cmd.encode('utf-8')} with res=  {res} and reply = {answ}" )
         except Exception as ex:
             e_type, e_filename, e_line_number, e_message = exptTrace(ex)
-            print_log(f'FAULHABER gripper on failed on port = {self.fh_port}. Exception: {ex} of type: {type(ex)}.')
-            self.success_flag = False
-            if self.dev_lock.locked():
-                self.dev_lock.release()
+            print_log(f'FAULHABER gripper on failed on port = {self._mDev_port}. Exception: {ex} of type: {type(ex)}.')
+            self._success_flag = False
+            if self._dev_lock.locked():
+                self._dev_lock.release()
             return  False
             
-        self.gripper_onof = True    
+        self._gripper_onoff = True    
         self.mDev_watch_dog()
         return True
 
@@ -612,7 +623,7 @@ class FH_Motor:
         if not self.mutualControl():
             return False
         
-        self.success_flag = True
+        self._success_flag = True
         try:
 
          
@@ -620,16 +631,16 @@ class FH_Motor:
             fh_cmd = f'u {vlt}'
             # fh_cmd = f'u -{self.el_voltage}'
             res, answ = FH_cmd(self.mDev_ser, fh_cmd, self.fh_lock)
-            print_log (f"Port= {self.fh_port},  command =  {fh_cmd.encode('utf-8')} with res=  {res} and reply = {answ}" )
+            print_log (f"Port= {self._mDev_port},  command =  {fh_cmd.encode('utf-8')} with res=  {res} and reply = {answ}" )
         except Exception as ex:
             e_type, e_filename, e_line_number, e_message = exptTrace(ex)
-            print_log(f'FAULHABER gripper on failed on port = {self.fh_port}. Exception: {ex} of type: {type(ex)}.')
-            self.success_flag = False
-            if self.dev_lock.locked():
-                self.dev_lock.release()
+            print_log(f'FAULHABER gripper on failed on port = {self._mDev_port}. Exception: {ex} of type: {type(ex)}.')
+            self._success_flag = False
+            if self._dev_lock.locked():
+                self._dev_lock.release()
             return False
 
-        self.gripper_onof = False    
+        self._gripper_onoff = False    
         self.mDev_watch_dog()
         return True
 
@@ -642,9 +653,9 @@ class FH_Motor:
         if velocity == None:
             velocity = self.rpm
 
-        self.success_flag = True
-        self.possition_control_mode = True
-        self.time_control_mode = False 
+        self._success_flag = True
+        self._possition_control_mode = True
+        self._time_control_mode = False 
         
         self.__stall_flag = False
         if stall is not None and stall:
@@ -658,27 +669,27 @@ class FH_Motor:
 
             fh_cmd = f'EN'                          # re-enabling motor
             res, answ = FH_cmd(self.mDev_ser, fh_cmd, self.fh_lock)
-            print_log (f"FH Motor on port= {self.fh_port},  reenabled =  {fh_cmd.encode('utf-8')} with res=  {res} and reply = {answ}" )
+            print_log (f"FH Motor on port= {self._mDev_port},  reenabled =  {fh_cmd.encode('utf-8')} with res=  {res} and reply = {answ}" )
 
 
 
             fh_cmd = f'SP {velocity}'
             res, answ = FH_cmd(self.mDev_ser, fh_cmd, self.fh_lock)
-            print_log (f"Port= {self.fh_port},  load RPM command =  {fh_cmd.encode('utf-8')} with res=  {res} and reply = {answ}" )
+            print_log (f"Port= {self._mDev_port},  load RPM command =  {fh_cmd.encode('utf-8')} with res=  {res} and reply = {answ}" )
 
-            self.mDev_pos = new_position
+            self._mDev_pos = new_position
             fh_cmd = f'LA {new_position}'
             res, answ = FH_cmd(self.mDev_ser, fh_cmd, self.fh_lock)
-            print_log (f"Port= {self.fh_port},  load position command =  {fh_cmd.encode('utf-8')} with res=  {res} and reply = {answ}" )
+            print_log (f"Port= {self._mDev_port},  load position command =  {fh_cmd.encode('utf-8')} with res=  {res} and reply = {answ}" )
             fh_cmd = f'M'
             res, answ = FH_cmd(self.mDev_ser, fh_cmd, self.fh_lock)
-            print_log (f"Port= {self.fh_port},  motion command =  {fh_cmd.encode('utf-8')} with res=  {res} and reply = {answ}" )
+            print_log (f"Port= {self._mDev_port},  motion command =  {fh_cmd.encode('utf-8')} with res=  {res} and reply = {answ}" )
         except Exception as ex:
             e_type, e_filename, e_line_number, e_message = exptTrace(ex)
-            print_log(f'FAULHABER gripper on failed on port = {self.fh_port}. Exception: {ex} of type: {type(ex)}.')
-            self.success_flag = False
-            if self.dev_lock.locked():
-                self.dev_lock.release()
+            print_log(f'FAULHABER gripper on failed on port = {self._mDev_port}. Exception: {ex} of type: {type(ex)}.')
+            self._success_flag = False
+            if self._dev_lock.locked():
+                self._dev_lock.release()
             self.__stall_flag = False
             return False
             
@@ -693,11 +704,11 @@ class FH_Motor:
         if velocity == None:
             velocity = self.el_voltage
 
-        self.success_flag = True
-        self.possition_control_mode = False
-        self.time_control_mode = True 
-        self.rotationTime = time
-        print_inf(f'TIME ROTATOR is going forward on port = {self.fh_port} for {time} seconds')
+        self._success_flag = True
+        self._possition_control_mode = False
+        self._time_control_mode = True 
+        self._rotationTime = time
+        print_inf(f'TIME ROTATOR is going forward on port = {self._mDev_port} for {time} seconds')
 
         
         try:
@@ -706,17 +717,17 @@ class FH_Motor:
             vlt = int(velocity) 
             fh_cmd = f'u {vlt}'
             res, answ = FH_cmd(self.mDev_ser, fh_cmd, self.fh_lock)
-            print_log (f"Port= {self.fh_port},  command =  {fh_cmd.encode('utf-8')} with res=  {res} and reply = {answ}" )
+            print_log (f"Port= {self._mDev_port},  command =  {fh_cmd.encode('utf-8')} with res=  {res} and reply = {answ}" )
                                                                                           
         except Exception as ex:
                 e_type, e_filename, e_line_number, e_message = exptTrace(ex)
-                print_err(f'FAULHABER TIME ROTATOR  failed on port = {self.fh_port}. Exception: {ex} of type: {type(ex)}.')
-                self.success_flag = False
-                if self.dev_lock.locked():
-                    self.dev_lock.release()
+                print_err(f'FAULHABER TIME ROTATOR  failed on port = {self._mDev_port}. Exception: {ex} of type: {type(ex)}.')
+                self._success_flag = False
+                if self._dev_lock.locked():
+                    self._dev_lock.release()
                 return False
         else:
-            print_inf (f"FAULHABER TIME ROTATOR FW started on port = {self.fh_port}" )
+            print_inf (f"FAULHABER TIME ROTATOR FW started on port = {self._mDev_port}" )
         
         self.mDev_watch_dog()
         return True
@@ -729,11 +740,11 @@ class FH_Motor:
         if velocity == None:
             velocity = self.el_voltage
 
-        self.success_flag = True
-        self.possition_control_mode = False
-        self.time_control_mode = True 
-        self.rotationTime = time
-        print_inf(f'IME ROTATOR is going backward on port = {self.fh_port}')
+        self._success_flag = True
+        self._possition_control_mode = False
+        self._time_control_mode = True 
+        self._rotationTime = time
+        print_inf(f'IME ROTATOR is going backward on port = {self._mDev_port}')
 
       
         try:
@@ -742,17 +753,17 @@ class FH_Motor:
             vlt = int(velocity) * (-1)
             fh_cmd = f'u {vlt}'
             res, answ = FH_cmd(self.mDev_ser, fh_cmd, self.fh_lock)
-            print_log (f"Port= {self.fh_port},  command =  {fh_cmd.encode('utf-8')} with res=  {res} and reply = {answ}" )
+            print_log (f"Port= {self._mDev_port},  command =  {fh_cmd.encode('utf-8')} with res=  {res} and reply = {answ}" )
                                                                                           
         except Exception as ex:
                 e_type, e_filename, e_line_number, e_message = exptTrace(ex)
-                print_err(f'FAULHABER TIME ROTATOR  failed on port = {self.fh_port}. Exception: {ex} of type: {type(ex)}.')
-                self.success_flag = False
-                if self.dev_lock.locked():
-                    self.dev_lock.release()
+                print_err(f'FAULHABER TIME ROTATOR  failed on port = {self._mDev_port}. Exception: {ex} of type: {type(ex)}.')
+                self._success_flag = False
+                if self._dev_lock.locked():
+                    self._dev_lock.release()
                 return False
         else:
-            print_inf (f"FAULHABER TIME ROTATOR BW started on port = {self.fh_port}" )
+            print_inf (f"FAULHABER TIME ROTATOR BW started on port = {self._mDev_port}" )
  
 
         self.mDev_watch_dog()
@@ -762,16 +773,16 @@ class FH_Motor:
         if not self.mutualControl():
             return False
         
-        self.success_flag = True
-        self.possition_control_mode = False
-        self.time_control_mode = False 
+        self._success_flag = True
+        self._possition_control_mode = False
+        self._time_control_mode = False 
 
         self.__stall_flag = False
         if stall is not None and stall:
             self.__stall_flag = True
 
         
-        print_log(f'Going forward on port = {self.mDev_ser.port}/{self.fh_port}')
+        print_log(f'Going forward on port = {self.mDev_ser.port}/{self._mDev_port}')
 
         cmd_seq = []
         
@@ -793,15 +804,15 @@ class FH_Motor:
                 return
             for fh_cmd in cmd_seq:
                 res, answ = FH_cmd(self.mDev_ser, fh_cmd, self.fh_lock)
-                print_log (f"Port= {self.fh_port},  forward command =  {fh_cmd.encode('utf-8')} with res=  {res} and reply = {answ}" )
+                print_log (f"Port= {self._mDev_port},  forward command =  {fh_cmd.encode('utf-8')} with res=  {res} and reply = {answ}" )
         except Exception as ex:
-                print_log(f'FAULHABER forward failed on port = {self.mDev_ser.port}/{self.fh_port}. Exception: {ex} of type: {type(ex)}.')
-                self.success_flag = False
-                if self.dev_lock.locked():
-                    self.dev_lock.release()
+                print_log(f'FAULHABER forward failed on port = {self.mDev_ser.port}/{self._mDev_port}. Exception: {ex} of type: {type(ex)}.')
+                self._success_flag = False
+                if self._dev_lock.locked():
+                    self._dev_lock.release()
                 return False
         else:
-            print_log (f"FAULHABER forward on port = {self.mDev_ser.port}/{self.fh_port} with res=  {res} and reply = {answ}" )
+            print_log (f"FAULHABER forward on port = {self.mDev_ser.port}/{self._mDev_port} with res=  {res} and reply = {answ}" )
         
         self.mDev_watch_dog()
         return True
@@ -811,9 +822,9 @@ class FH_Motor:
         if not self.mutualControl():
             return False
         
-        self.success_flag = True
-        self.possition_control_mode = False
-        self.time_control_mode = False
+        self._success_flag = True
+        self._possition_control_mode = False
+        self._time_control_mode = False
 
         self.__stall_flag = False
         if stall is not None and stall:
@@ -822,7 +833,7 @@ class FH_Motor:
 
 
 
-        print_log(f'Going forward on port = {self.mDev_ser.port}/{self.fh_port}')
+        print_log(f'Going forward on port = {self.mDev_ser.port}/{self._mDev_port}')
 
         cmd_seq = []
         
@@ -844,15 +855,15 @@ class FH_Motor:
                 return
             for fh_cmd in cmd_seq:
                 res, answ = FH_cmd(self.mDev_ser, fh_cmd, self.fh_lock)
-                print_log (f"Port= {self.fh_port},  backward command =  {fh_cmd.encode('utf-8')} with res=  {res} and reply = {answ}" )
+                print_log (f"Port= {self._mDev_port},  backward command =  {fh_cmd.encode('utf-8')} with res=  {res} and reply = {answ}" )
         except Exception as ex:
-                print_log(f'FAULHABER backward failed on port = {self.mDev_ser.port}/{self.fh_port}. Exception: {ex} of type: {type(ex)}.')
-                self.success_flag = False
-                if self.dev_lock.locked():
-                    self.dev_lock.release()
+                print_log(f'FAULHABER backward failed on port = {self.mDev_ser.port}/{self._mDev_port}. Exception: {ex} of type: {type(ex)}.')
+                self._success_flag = False
+                if self._dev_lock.locked():
+                    self._dev_lock.release()
                 return False
         else:
-            print_log (f"FAULHABER backward on port = {self.mDev_ser.port}/{self.fh_port} with res=  {res} and reply = {answ}" )
+            print_log (f"FAULHABER backward on port = {self.mDev_ser.port}/{self._mDev_port} with res=  {res} and reply = {answ}" )
  
 
         self.mDev_watch_dog()
@@ -860,7 +871,7 @@ class FH_Motor:
 
    
     def mDev_stored_pos(self): 
-        return self.mDev_pos
+        return self._mDev_pos
    
     def mDev_get_cur_pos(self) -> int:
         if self.mDev_name[0].upper() == 'S' or self.mDev_name[0].upper() == 'G':        
@@ -870,34 +881,34 @@ class FH_Motor:
         try:
             res, answ = FH_cmd(self.mDev_ser, 'POS', self.fh_lock)
 
-            self.mDev_pos = int(answ)
+            self._mDev_pos = int(answ)
 
         except Exception as ex:
             e_type, e_filename, e_line_number, e_message = exptTrace(ex)
-            print_log(f"Connection to port {self.fh_port} was lost")
+            print_log(f"Connection to port {self._mDev_port} was lost")
             print_log(f"Unexpected Exception: {ex}")
             return 0         
         else:
-            return self.mDev_pos        
+            return self._mDev_pos        
 
     def  mDev_reset_pos(self)->bool:
         self.mDev_stop()
         try:
             res, answ = FH_cmd(self.mDev_ser, 'HO', self.fh_lock)
-            print_log (f"FAULHABER HOMED on port = {self.mDev_ser.port}/{self.fh_port} with res=  {res} and reply = {answ}" )
+            print_log (f"FAULHABER HOMED on port = {self.mDev_ser.port}/{self._mDev_port} with res=  {res} and reply = {answ}" )
 
-            self.mDev_pos = 0
+            self._mDev_pos = 0
 
         except Exception as ex:
             e_type, e_filename, e_line_number, e_message = exptTrace(ex)
-            print_log(f"ULHABER HOMED fales on port {self.fh_port} was lost")
+            print_log(f"ULHABER HOMED fales on port {self._mDev_port} was lost")
             print_log(f"Unexpected Exception: {ex}")
             return False         
         else:
             return True 
         
     def getTitle(self)->str:
-        return self.__title
+        return self._title
 
     def set_parms(self, parms):
         self.MEASUREMENT_DELAY = get_parm(self.devName, parms, 'MEASUREMENT_DELAY')
@@ -915,7 +926,7 @@ class FH_Motor:
         self.DevMaxSPEED = get_parm(self.devName, parms, 'DevMaxSPEED')
         self.DevOpSPEED  = get_parm(self.devName, parms, 'DevOpSPEED')
         
-        self.__title = get_parm(self.devName, parms, 'TITLE')
+        self._title = get_parm(self.devName, parms, 'TITLE')
 
 
         self.el_voltage =  self.DEAFULT_VELOCITY_EV_VOLTAGE
@@ -923,25 +934,25 @@ class FH_Motor:
         self.rpm = self.DEAFULT_TROLLEY_RPM 
 
         if self.mDev_type == DevType.TROLLEY:
-            self.el_current_limit = self.TROLLEY_DEFAULT_CURRENT_LIMIT
+            self._el_current_limit = self.TROLLEY_DEFAULT_CURRENT_LIMIT
             
         elif self.mDev_type == DevType.GRIPPER:
-            self.el_current_limit = self.GRIPPER_DEFAULT_CURRENT_LIMIT
+            self._el_current_limit = self.GRIPPER_DEFAULT_CURRENT_LIMIT
             
 
         elif self.mDev_type == DevType.TIME_ROTATOR:
-            self.rotationTime = self.DEFAULT_ROTATION_TIME
-            self.el_current_limit = self.SPINNER_DEFAULT_CURRENT_LIMIT
+            self._rotationTime = self.DEFAULT_ROTATION_TIME
+            self._el_current_limit = self.SPINNER_DEFAULT_CURRENT_LIMIT
             
 
         print_inf (f'loading parms for {self.devName}')
 
     def mutualControl(self):
-        if self.dev_lock.locked():
-            print_err(f'ERROR- The device {self.devName} on port {self.fh_port} is active. Cant allow multiply activations')
+        if self._dev_lock.locked():
+            print_err(f'ERROR- The device {self.devName} on port {self._mDev_port} is active. Cant allow multiply activations')
             return False
         else:
-            self.dev_lock.acquire()
+            self._dev_lock.acquire()
             return True
 
 
@@ -1041,19 +1052,19 @@ if __name__ == "__main__":
                 dev_rotator = fh_dev.dev_mDC 
 
         if dev_trolley:
-            dev_trolley.mDev_pressed = False
+            dev_trolley._mDev_pressed = False
 
         if dev_gripper:
-            dev_gripper.mDev_pressed = False
+            dev_gripper._mDev_pressed = False
 
         if dev_rotator:
-            dev_rotator.mDev_pressed = False
+            dev_rotator._mDev_pressed = False
         
 
 
     #-----------------------------------------------------------   
         if dev_trolley:
-            window['-TROLLEY_POSSITION-'].update(value = dev_trolley.mDev_pos)
+            window['-TROLLEY_POSSITION-'].update(value = dev_trolley._mDev_pos)
             window['-TROLLEY_VELOCITY-'].update(value = dev_trolley.rpm)
 
         if dev_rotator:
@@ -1089,7 +1100,7 @@ if __name__ == "__main__":
                 window['ONOFF'].update(disabled = True)
                 
                 if dev_gripper:
-                    dev_gripper.mDev_pressed = True
+                    dev_gripper._mDev_pressed = True
 
             elif  event == '-TROLLEY_TARGET-':
                 if  len(values['-TROLLEY_TARGET-']) > 0 and values['-TROLLEY_TARGET-'][-1] not in ('-0123456789'):
@@ -1102,7 +1113,7 @@ if __name__ == "__main__":
 
                 if dev_trolley:
                     dev_trolley.go2pos(values['-TROLLEY_TARGET-'])
-                    dev_trolley.mDev_pressed = True
+                    dev_trolley._mDev_pressed = True
                 
                 window['-TROLLEY_POS_SET-'].update(disabled = True)
                 window['-TROLLEY_RIGHT-'].update(disabled = True)
@@ -1118,7 +1129,7 @@ if __name__ == "__main__":
                 window['-TROLLEY_LEFT-'].update(disabled = True)
                 if dev_trolley:
                     dev_trolley.mDev_forward()
-                    dev_trolley.mDev_pressed = True
+                    dev_trolley._mDev_pressed = True
 
             elif event == '-TROLLEY_LEFT-':
                 window['-TROLLEY_POS_SET-'].update(disabled = True)
@@ -1126,7 +1137,7 @@ if __name__ == "__main__":
                 window['-TROLLEY_LEFT-'].update(disabled = True)
                 if dev_trolley:
                     dev_trolley.mDev_backwrd()
-                    dev_trolley.mDev_pressed = True
+                    dev_trolley._mDev_pressed = True
             
             elif event == '-TROLLEY_STOP-':
                 if dev_trolley:
@@ -1138,20 +1149,20 @@ if __name__ == "__main__":
                 window['-TROLLEY_LEFT-'].update(disabled = False)
                 
 
-            if dev_gripper  and dev_gripper.mDev_pressed and not dev_gripper.wd.is_alive():
+            if dev_gripper  and dev_gripper._mDev_pressed and not dev_gripper._wd.is_alive():
                 print_log(f'Complete')
                 window['ONOFF'].update(disabled = False)
-                dev_gripper.mDev_pressed = False
+                dev_gripper._mDev_pressed = False
 
-            if dev_trolley and dev_trolley.mDev_pressed and not dev_trolley.wd.is_alive():
+            if dev_trolley and dev_trolley._mDev_pressed and not dev_trolley._wd.is_alive():
                 print_log(f'Trolley Complete')
                 window['-TROLLEY_POS_SET-'].update(disabled = False)
                 window['-TROLLEY_RIGHT-'].update(disabled = False)
                 window['-TROLLEY_LEFT-'].update(disabled = False)
-                dev_trolley.mDev_pressed = False
+                dev_trolley._mDev_pressed = False
             
 
-            if  dev_trolley and dev_trolley.mDev_pressed and dev_trolley.wd.is_alive():
+            if  dev_trolley and dev_trolley._mDev_pressed and dev_trolley._wd.is_alive():
                 new_pos = dev_trolley.mDev_get_cur_pos()
                 # print_log(f'Updating possition: {new_pos}')
                 window['-TROLLEY_POSSITION-'].update(value = new_pos)

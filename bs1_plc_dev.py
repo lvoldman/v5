@@ -190,7 +190,7 @@ class PLCDev(BaseDev):
     # runDevicesOp runner:int -> bool  -- starts runner operation for device loaded to run for given runner number
     # than oiperates watch dog thread to monitor operation status for each of devices assigned to the runner
     # runner status is handled by by all devices assigned to the runner
-    # returns (blocked:bool, result:bool)
+    # returns (result:bool, blocked:bool )
     @staticmethod
     def runDevicesOp(runner:int)-> tuple[bool, bool]:
         cmdLst:list = list()
@@ -305,7 +305,7 @@ class PLCDev(BaseDev):
         return None
  
     # operateDevice -- runs loadDeviceOp and runDevicesOp in sequence
-    def operateDevice(self, command:str)-> tuple[bool, bool]:
+    def operateDevice(self, command:str, **kwargs)-> tuple[bool, bool]:
         toBlock:bool = True 
         opResult:bool = True
         try:
@@ -314,14 +314,14 @@ class PLCDev(BaseDev):
             if runnerNum is None:
                 raise Exception(f'[device {self._devName}] operateDevice: loadDeviceOp failed for command="{command}"')
             
-            toBlock, opResult = PLCDev.runDevicesOp(runner=runnerNum)
+            opResult, toBlock = PLCDev.runDevicesOp(runner=runnerNum)
             print_log(f'[device {self._devName}] operateDevice: Device command loaded and run at runner = {runnerNum}')
     
         except Exception as ex:
             exptTrace(ex)
             return False, False
     
-        return toBlock, opResult
+        return opResult, toBlock
     
 
     def runWDThread(self) -> bool:

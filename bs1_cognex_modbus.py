@@ -307,7 +307,11 @@ class CognexCAM(BaseDev):
         
         return True
 
-
+    def operateDevice(self, command, **kwards):
+                                        # pass, nothing to do
+        return super().operateDevice(command, **kwards) 
+    
+    
     def Trigger(self)->bool:
         print_log(f'Trigger: Setting BUFFER_RESULT_ENABLE_FLAG = {BUFFER_RESULT_ENABLE_FLAG:#010x}')
         self.__setVisionControlBit(_flag = BUFFER_RESULT_ENABLE_FLAG)

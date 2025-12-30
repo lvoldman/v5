@@ -72,18 +72,18 @@ class pType(Enum):
 
 devCmdCnfg: dict[DevType, dict[pType, list[str]]] = {
     DevType.TROLLEY: {
-        pType.OP: ['ML', 'MR', 'HO', 'REL', 'STALL'],
-        pType.PARM: ['position', 'velocity'],
+        pType.OP: ['ML', 'MR', 'HO', 'REL', 'STALL', 'STOP'],
+        pType.PARM: ['position', 'velocity', 'stall'],
         pType.RET: ['success', 'message', 'position']
     },
     DevType.ZABER: {
-        pType.OP: ['MA', 'MR', 'HO', 'VIBRATE'],
+        pType.OP: ['MA', 'MR', 'HO', 'VIBRATE', 'STOP'],
         pType.PARM: ['position', 'velocity', 'distance'],
         pType.RET: ['success', 'message', 'position']
     },
     DevType.CAM: {
-        pType.OP: ['CHECK'],
-        pType.PARM: ['profile'],
+        pType.OP: ['CHECK', 'CALIBRE', 'TERM'],
+        pType.PARM: ['profile', 'abs', 'device'],
         pType.RET: ['success', 'message', 'action']
     },
     DevType.DB: {
@@ -92,12 +92,12 @@ devCmdCnfg: dict[DevType, dict[pType, list[str]]] = {
         pType.RET: ['success', 'message', 'good', 'bad']
     },
     DevType.DH: {
-        pType.OP: ['MA', 'MR', 'HO','OPEN', 'CLOSE'],
+        pType.OP: ['MA', 'MR', 'HO','OPEN', 'CLOSE', 'STOP'],
         pType.PARM: ['position', 'distance', 'velocity'],
         pType.RET: ['success', 'message', 'state', 'position']
     },
     DevType.GRIPPERv3: {
-        pType.OP: ['OPEN', 'CLOSE'],
+        pType.OP: ['OPEN', 'CLOSE', 'STOP'],
         pType.PARM: [],
         pType.RET: ['success', 'message', 'state']
     },
@@ -107,7 +107,7 @@ devCmdCnfg: dict[DevType, dict[pType, list[str]]] = {
         pType.RET: ['success', 'message', 'temp']
     },
     DevType.MCDMC: {
-        pType.OP: ['PUT', 'PUTPCB', 'INSERTPCB', 'MOVESAFE', 'MOVEREL', 'MOVEABS', 'VACUUM', 'ACTIVATE', 'DEACTIVATE', 'VALIDATE' ],
+        pType.OP: ['PUT', 'PUTPCB', 'INSERTPCB', 'MOVESAFE', 'MOVEREL', 'MOVEABS', 'VACUUM', 'ACTIVATE', 'DEACTIVATE', 'VALIDATE', 'STOP' ],
         pType.PARM: ['p3d', 'vacuum', 'duration', 'velocity', 'x', 'y', 'z', 'alpha', 'beta', 'gamma'],
         pType.RET: ['success', 'message', 'x', 'y', 'z', 'alpha', 'beta', 'gamma', 'vacuum', 'valid_products']
     },
@@ -117,12 +117,12 @@ devCmdCnfg: dict[DevType, dict[pType, list[str]]] = {
         pType.RET: ['success', 'message', 'state', 'device']
     }, 
     DevType.DIST_ROTATOR: {
-        pType.OP: ['MA', 'ML', 'MR', 'MLC', 'MRC', 'HO', 'REL'],            
-        pType.PARM: ['position', 'velocity', 'duration', 'gpio_quickstop_polarity'],
+        pType.OP: ['MA', 'ML', 'MR', 'MLC', 'MRC', 'HO', 'REL', 'STOP'],            
+        pType.PARM: ['position', 'velocity', 'duration', 'gpio_quickstop_polarity', 'stall'],
         pType.RET: ['success', 'message', 'state', 'device']
     },
     DevType.TIME_ROTATOR: {
-        pType.OP: ['ML', 'MR'],
+        pType.OP: ['ML', 'MR', 'STOP', 'stall'],
         pType.PARM: ['duration'],
         pType.RET: ['success', 'message', 'position']
     },
@@ -159,6 +159,8 @@ vType: dict[str, type] = {
     'device': str,
     'onoff': str  | bool,       # "" for trigger/toggle | "ON" | "OFF"
     'file': str,
+    'abs': bool,
+    'device': str,
     'NoneType': type(None)
 }
 
@@ -279,7 +281,8 @@ class Command:
                     if not isinstance(cmd.args[parm], expected_type):
                         raise ValueError(f'Parameter {parm} expected type {expected_type}, got {type(cmd.args[parm])} in command {cmd} for device type {device_type}')
             # device specific validation
-            if device_type == DevType.CAM and cmd.op == 'CHECK':
+            # if device_type == DevType.CAM and cmd.op == 'CHECK':
+            if device_type == DevType.CAM and cmd.op in ['CHECK', 'CALIBRE']:
                 profile = cmd.args.get('profile', '')
                 if parms is not None and cmd.device in parms and 'profiles' in parms[cmd.device]:
                     allowed_profiles = parms[cmd.device]['profiles']

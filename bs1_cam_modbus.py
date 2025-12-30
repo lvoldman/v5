@@ -33,6 +33,7 @@ DEFAULT_TIMEOUT_ERROR = 10
 from bs1_utils import print_log, print_inf, print_err, print_DEBUG, exptTrace, s16, s32, set_parm, get_parm, \
     assign_parm , assign_type_parm
 from bs1_base_motor import BaseDev
+from bs2_DSL_cmd import Command, devCmdCnfg, vType, pType
 
 
 # camRes = namedtuple("camRes",  ["res", "dist", "repQ"])
@@ -564,9 +565,34 @@ class Cam_modbus(BaseDev):
     def operateDevice(self, command:str, **kwards)-> tuple[bool, bool]:
                                                 # various parameters possible
                                                 # using: _command = kwards['window']
-        print_log(f'CAM ModBus operateDevice: command = {command}, kwards = {kwards}')
-        print_log(f'ERROR: Will be implemented later')
-        return False, False
+        try:               
+            print_log(f'CAM ModBus operateDevice: command = {command}, kwards = {kwards}')
+            _cmd = Command(command)
+            if _cmd.device != self._devName:
+                raise Exception (f'({self._devName})CAM ModBus operateDevice: Wrong device name {_cmd.device} in command {command}')
+            if _cmd.op =='TERM':
+                return self.setTerminate(), False
+            elif _cmd.op == 'CALIBRATE':
+                _profile = _cmd.args.get('profile', '')
+                _motor = _cmd.args.get('device', '')
+                _abs = _cmd.args.get('abs', False)
+                _window = kwards.get('window', None)
+                if _window is None:
+                    raise Exception (f'CAM ModBus operateDevice: No window passed for CALIBRATE command')
+                return self.start_cam_tuning_operation(motor_n=_motor, profile=_profile, window=_window, _abs=_abs), True
+            elif _cmd.op == 'CHECK':
+                _profile = _cmd.args.get('profile', '')
+                _window = kwards.get('window', None)
+                if _window is None:
+                    raise Exception (f'CAM ModBus operateDevice: No window passed for CHECK command')
+                return self.start_cam_check_operation(profile=_profile, window=_window), True
+            
+        
+        except Exception as ex:
+            print_log(f'CAM ModBus operateDevice: Error processing command = {command}, kwards = {kwards}. Exception = {ex}')
+            exptTrace(ex)
+            return False, False
+        
         # BUGBUG add various commands here
 
 

@@ -25,9 +25,9 @@ class sysDevice(BaseDev):
                                                         # no query avilable for system device
         return ''
     
-    def operateDevice(self, command:str)-> tuple[bool, bool]:
+    def operateDevice(self, command:str, **kwargs)-> tuple[bool, bool]:
         pass
-        return (False, True)                        #  no blocking, result = True
+        return (True, False)                        #  result = True, no blocking
 
     def play_media(media_file:str)->bool:
         try:

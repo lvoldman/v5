@@ -129,12 +129,12 @@ class CDev:
         if _dev is not None:
             del _dev
 
-    def operateDevice(self, cmd:str) -> tuple[bool, bool] :
+    def operateDevice(self, command:str, **kwargs) -> tuple[bool, bool] :
 
         if self.__device is not None:
-            return self.__device.operateDevice(cmd)
+            return self.__device.operateDevice(command, **kwargs)
         else:
-            print_err(f'ERROR operating cmd = {cmd}, unkmown device - {self}')
+            print_err(f'ERROR operating cmd = {command}, unkmown device - {self}')
             return False, False
 
 

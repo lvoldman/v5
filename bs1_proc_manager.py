@@ -730,7 +730,11 @@ class WorkingTask:                                  # WorkingTask - self-recursi
                                 
             # runner = wCmd.device.loadDeviceOp(wCmd)
             # toBlock, opResult = wCmd.device.__class__.runDevicesOp(runner)          # run the loaded commands
-            toBlock, opResult = wCmd.device.cDevice.operateDevice(command=wCmd.operation, window=window)          # run the loaded commands
+            opResult, toBlock = wCmd.device.cDevice.operateDevice(command=wCmd.operation, window=window)          
+                                                                                # run the loaded commands directly on device itself
+                                                                                # other option is to run via CDev.wCmd.device.operateDevice()
+                                                                                # expected the same result
+                                                                                # returns (opResult, toBlock)
 
             print_log(f'Device command loaded and run at device {wCmd.device.get_device().devName}, type = {wCmd.cmd}, command = {wCmd.args}')
 
@@ -1214,9 +1218,9 @@ def Create_Single_Task(cmd:str, devs_list:list[CDev]) -> WorkingTask:
             elif isinstance(cmd[2], bool):
                 print_log(f'cmd = {cmd}, arg - bool')
                 if (cmd[2]):
-                    wCmd = CmdObj(device=device, cmd = OpType.go_fwrd_on)
+                    wCmd = CmdObj(device=device, cmd = OpType.go_fwrd_on)   # open
                 else:
-                    wCmd = CmdObj(device=device, cmd = OpType.go_bcwrd_off)  
+                    wCmd = CmdObj(device=device, cmd = OpType.go_bcwrd_off)  # close
             elif isinstance(cmd[2], str): 
                 print_log(f'cmd = {cmd}, arg - str')
                 if cmd[2].upper() == 'TRUE':
