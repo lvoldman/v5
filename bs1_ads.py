@@ -47,7 +47,7 @@ class symbolsADS:           # ADS symbols used in PLC configuration w/default va
     _runner_array_str:str = 'G_System.fbExternalAPI.fbExternalRunner'
     _device_access:str = 'G_System.fbExternalAPI.stDriverPool.DriverPool'  
                                     # API: G_System.fbExternalAPI.stDriverPool.DriverPool[<index>]._API
-    
+    #  _deviceResult   BUGBUG 
 
 pick_method = Enum("pick_method", ["random", "up_end", "low_end"])
 

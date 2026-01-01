@@ -1,3 +1,13 @@
+__author__ = "Leonid Voldman"
+__copyright__ = "Copyright 2024"
+__credits__ = ["VoldmanTech"]
+__license__ = "SLA"
+__version__ = "1.0.0"
+__maintainer__ = "Leonid Voldman"
+__email__ = "vleonid@voldman.com"
+__status__ = "Tool"
+
+
 import ctypes
 import time
 
@@ -6,9 +16,22 @@ import time
 from ctypes import *
 from ctypes import wintypes
 
-from typing import List
 
+'''
+NCT6102D Super I/O chip GPIO access via direct port I/O runs on UM_RCO-3000 motherboard.
+Ref: NUVOTON NCT6102D datasheet
+The NCT6102D Super I/O chip provides 8 general-purpose input/output (GPIO) pins
+that can be configured as either inputs or outputs. These GPIO pins can be controlled through the Extended Function
+Index Register (EFIR) and Extended Function Data Register (EFDR).
+Operation sequence:
+1. Enter the Extended Function Mode by writing 0x87 twice to the Extended Function Enable Registers (EFERs) at port 0x2E or 0x4E.
+2. Select the GPIO Logical Device by writing 0x07 to the EFIR and then writing 0x07 to the EFDR.
+3. To configure the GPIO pins as outputs, write the desired output values to the GPIO Data          
+Register (CR F1h) by writing 0xF1 to the EFIR and then writing the output values to the EFDR.
+4. To read the GPIO pins configured as inputs, write 0xED to the EFIR and then read the input values from the EFDR.
+5. Exit the Extended Function Mode by writing 0xAA to the EFER.
 
+'''
 
 '''
 Extended Function Index Register (EFIR) and Extended Function Data Register (EFDR). The EFIR is located at the same address as the
@@ -32,7 +55,7 @@ GPIO_Port_IN = 0xED                 # CR EDh. GPIO3 Data Register  / IN // ref: 
 
 
 def WriteByte(port, _data:int) -> bool:
-    _lst:List = [0] * 2
+    _lst = [0] * 2
 
     _lst[0] = _data & 0xFF
     _bt = bytes(_lst)

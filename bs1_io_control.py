@@ -19,8 +19,9 @@ import sys, time
 DEFAULT_TIMEOUT = 1
 
 class IOcontrol:
-    # blue/brown pair: Normally closed, 0->1 when the door is opened 
-    # def __init__(self, _dname:str, _device, parms:dict,  __NO = True):
+    # when working with EMO:  blue/brown pair: Normally closed, 0->1 when the door is opened 
+
+    # device: 'DAQ NI'  // 'GPIO NCT6102D' // PLC SingleIoControl // 'PLC Tc_IOSequencer' // 'Virtual IO' // etc
     def __init__(self, _dname:str, _device, __line:int, __port:int, parms:dict, __NO:bool = True):
         self.__port:int = __port                 # default
         self.__line:int = __line

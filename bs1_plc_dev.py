@@ -114,11 +114,15 @@ class PLCDev(BaseDev):
             _tmpINFO = PLCDev.__ads.readVar(symbol_name=f'{symbolsADS._device_access}[{self._dev_idx}]._instanceInfo', var_type=str, size=DEV_INFO_SIZE)
             _tmpAPI = PLCDev.__ads.readVar(symbol_name=f'{symbolsADS._device_access}[{self._dev_idx}]._API', var_type=str, size=DEV_API_SIZE)
             print_log(f'[device {self._devName}] PLCDev read _instanceInfo and _API from PLC for device index = {self._dev_idx}: ')
-            print_log(f'[device {self._devName}] _instanceInfo = {_tmpINFO}')
-            print_log(f'[device {self._devName}] _API = {_tmpAPI}') 
+            print_DEBUG(f'[device {self._devName}] _instanceInfo = {_tmpINFO}')
+            print_DEBUG(f'[device {self._devName}] _API = {_tmpAPI}') 
 
             self.__devINFO = (json.loads(_tmpINFO) if _tmpINFO is not None else None) 
             self.__devAPI = (json.loads(_tmpAPI) if _tmpAPI is not None else None)
+
+            print_DEBUG(f'[device {self._devName}] _instanceInfo = {json.dumps(self.__devINFO, indent=1)}')
+            print_DEBUG(f'[device {self._devName}] _API = {json.dumps(self.__devAPI, indent=1)}') 
+
 
             print_log(f'[device {self._devName}] PLCDev initialized. Device index = {self._dev_idx}, devAPI size = {len(self.__devAPI) if self.__devAPI is not None else 0} / {self.__devAPI}, devINFO size = {len(self.__devINFO) if self.__devINFO is not None else 0} / {self.__devINFO} ')
 
