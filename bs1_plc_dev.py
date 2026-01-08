@@ -19,6 +19,7 @@ from bs1_utils import print_log, print_inf, print_err, print_DEBUG, exptTrace, s
 from bs1_base_motor import BaseMotor, BaseDev
 from bs1_ads import commADS, STATUS, EN_DeviceCoreState, symbolsADS, Pool
 
+
 DEV_API_SIZE = 4000  # bytes
 DEV_NAME_SIZE = 80  # chars
 DEV_INFO_SIZE = 1024  # bytes
@@ -81,9 +82,10 @@ class PLCDev(BaseDev):
     __ads:commADS = None
     __instances:int = 0
 
-    def __init__(self, dev_name:str='', _comADS:commADS=None):
+    def __init__(self, dev_name:str, plc_dev_name:str, _comADS:commADS=None):
         try:
             super().__init__(devName=dev_name)
+            self._plcDevName:str = plc_dev_name
             self.__devAPI:dict =   None
             self.__devINFO:dict =  None
             self._dev_info:dict = None
@@ -99,59 +101,67 @@ class PLCDev(BaseDev):
 
             self.__wd_thread_stop_event.set()    # initially stop the thread
 
+            assert _comADS is not None, 'PLCDev initialization failed: commADS instance is required'
+
             if PLCDev.devsList is None:
                 PLCDev.enum_devs(_comADS=_comADS)
 
-            self._dev_idx:int = PLCDev.lookUpDev(self._devName) + 1   # +1 because PLC array is 1-based index
+            self._dev_idx:int = PLCDev.lookUpDev(self._plcDevName) + 1   # +1 because PLC array is 1-based index
 
             if PLCDev.__ads is None:
                 if _comADS is not None:
                     PLCDev.__ads = _comADS
-                    print_log(f'[device {self._devName}] PLCDev initialized with provided commADS instance')
+                    print_log(f'[device {self._devName}] PLCDev {self._plcDevName} initialized with provided commADS instance')
                 else:
-                    raise Exception(f'[device {self._devName}] PLCDev initialization failed. commADS instance is not provided')     
+                    raise Exception(f'[device {self._devName}] PLCDev {self._plcDevName} initialization failed. commADS instance is not provided')     
+            else:
+                print_log(f'[device {self._devName}] PLCDev {self._plcDevName} initialized with existing commADS instance')
+
                 
+                                                        # read device info and API from PLC
             _tmpINFO = PLCDev.__ads.readVar(symbol_name=f'{symbolsADS._device_access}[{self._dev_idx}]._instanceInfo', var_type=str, size=DEV_INFO_SIZE)
             _tmpAPI = PLCDev.__ads.readVar(symbol_name=f'{symbolsADS._device_access}[{self._dev_idx}]._API', var_type=str, size=DEV_API_SIZE)
-            print_log(f'[device {self._devName}] PLCDev read _instanceInfo and _API from PLC for device index = {self._dev_idx}: ')
-            print_DEBUG(f'[device {self._devName}] _instanceInfo = {_tmpINFO}')
-            print_DEBUG(f'[device {self._devName}] _API = {_tmpAPI}') 
+            
+            print_log(f'[device {self._devName}] PLCDev {self._plcDevName} read _instanceInfo and _API from PLC for device index = {self._dev_idx}: ')
+            
+            # print_DEBUG(f'[device {self._devName}] _instanceInfo = {_tmpINFO}')
+            # print_DEBUG(f'[device {self._devName}] _API = {_tmpAPI}') 
 
             self.__devINFO = (json.loads(_tmpINFO) if _tmpINFO is not None else None) 
             self.__devAPI = (json.loads(_tmpAPI) if _tmpAPI is not None else None)
 
-            print_DEBUG(f'[device {self._devName}] _instanceInfo = {json.dumps(self.__devINFO, indent=1)}')
-            print_DEBUG(f'[device {self._devName}] _API = {json.dumps(self.__devAPI, indent=1)}') 
+            print_DEBUG(f'[device {self._devName}] {self._plcDevName}: _instanceInfo = {json.dumps(self.__devINFO, indent=1)}')
+            print_DEBUG(f'[device {self._devName}] {self._plcDevName}: _API = {json.dumps(self.__devAPI, indent=1)}') 
 
 
-            print_log(f'[device {self._devName}] PLCDev initialized. Device index = {self._dev_idx}, devAPI size = {len(self.__devAPI) if self.__devAPI is not None else 0} / {self.__devAPI}, devINFO size = {len(self.__devINFO) if self.__devINFO is not None else 0} / {self.__devINFO} ')
+            print_log(f'[device {self._devName}] PLCDev {self._plcDevName} initialized. Device index = {self._dev_idx}, devAPI size = {len(self.__devAPI) if self.__devAPI is not None else 0} / {self.__devAPI}, devINFO size = {len(self.__devINFO) if self.__devINFO is not None else 0} / {self.__devINFO} ')
 
             if PLCDev.__number_of_runners is None:   # initialize number of runners
                 PLCDev.__number_of_runners = PLCDev.__ads.readVar(symbol_name=symbolsADS._max_number_of_runners, var_type=int)
-                print_log(f'[device {self._devName}] PLCDev initialized with __number_of_runners = {PLCDev.__number_of_runners}')
+                print_log(f'[device {self._devName}] PLCDev {self._plcDevName} initialized with __number_of_runners = {PLCDev.__number_of_runners}')
             if PLCDev.__runner_factory is None:          # initialize runner factory
                 PLCDev.__runner_factory = runnerFactory(num_runners=PLCDev.__number_of_runners)
-                print_log(f'[device {self._devName}] PLCDev runnerFactory instance created for {PLCDev.__number_of_runners} runners ')
+                print_log(f'[device {self._devName}] PLCDev {self._plcDevName} runnerFactory instance created for {PLCDev.__number_of_runners} runners ')
             PLCDev.__instances += 1
-            print_log(f'[device {self._devName}] PLCDev instance created. Total instances = {PLCDev.__instances}')
+            print_log(f'[device {self._devName}] PLCDev {self._plcDevName} instance created. Total instances = {PLCDev.__instances}')
             
 
         except Exception as ex:
             exptTrace(ex)   
-            print_err(f'[device {self._devName}] PLCDev initialization failed. Exception: {ex}')
+            print_err(f'[device {self._devName}] PLCDev {self._plcDevName} initialization failed. Exception: {ex}')
             raise ex   
     
     def __del__(self):
         try:
             if self.__wd is not None and self.__wd.is_alive():
-                print_log(f'[device {self._devName}] PLCDev __del__: Waiting for watch dog thread to end...')
+                print_log(f'[device {self._devName}] PLCDev {self._plcDevName} __del__: Waiting for watch dog thread to end...')
                 self.__wd.join(timeout=5)
                 if self.__wd.is_alive():
-                    print_err(f'[device {self._devName}] PLCDev __del__: Watch dog thread did not end within timeout')
+                    print_err(f'[device {self._devName}] PLCDev {self._plcDevName} __del__: Watch dog thread did not end within timeout')
                 else:
-                    print_log(f'[device {self._devName}] PLCDev __del__: Watch dog thread ended successfully')
+                    print_log(f'[device {self._devName}] PLCDev {self._plcDevName} __del__: Watch dog thread ended successfully')
             PLCDev.__instances -= 1
-            print_log(f'[device {self._devName}] PLCDev instance deleted. Total remaining instances = {PLCDev.__instances}')
+            print_log(f'[device {self._devName}] PLCDev {self._plcDevName} instance deleted. Total remaining instances = {PLCDev.__instances}')
             if PLCDev.__instances == 0:
                 del PLCDev.__ads
                 del PLCDev.__runner_factory
@@ -161,17 +171,20 @@ class PLCDev(BaseDev):
 
         except Exception as ex:
             exptTrace(ex)
-
+    '''
+    enum_devs method enumerates available devices from PLC via commADS instance
+    '''
     @staticmethod
     def enum_devs(_comADS:commADS)-> list[str]:
-        
-        PLCDev.devsList:list[str] = list()
+        PLCDev.devsList:list[str] = list()   # initialize device list 
         try:
             num_of_devs:int = _comADS.readVar(symbol_name=symbolsADS._num_of_devices, var_type=int)
+                                            # actual number of devices configured in PLC
             print_log(f'PLCDev enum_devs: Number of configured devices in PLC = {num_of_devs}')
 
             for i in range(num_of_devs):
                 dev_name:str = _comADS.readVar(symbol_name=f'{symbolsADS._device_access}[{i+1}]._instanceName', var_type=str, size=DEV_NAME_SIZE)
+                                                    # read device name from PLC (1-based index)
                 PLCDev.devsList.append(dev_name)
                 print_log(f'PLCDev enum_devs: Device index {i}, name = {dev_name}')
 
@@ -505,7 +518,7 @@ if __name__ == "__main__":
     devLst:list = PLCDev.enum_devs(_comADS=_ads)
     for i, devName in enumerate(devLst):
         print(f'[UNITEST]Creating PLCDev instance for device {i}: {devName}')
-        _tmpDev = PLCDev(dev_name = devName,  _comADS=_ads)
+        _tmpDev = PLCDev(dev_name=f'Device_{i}', plc_dev_name=devName,  _comADS=_ads)
         _devs.append(_tmpDev)   
 
 

@@ -43,8 +43,9 @@ class GPIO_Dev(BaseDev):
                                                 # using: _command = kwards['window']
         pass
 
+    # each of the methods below should return (result:bool, blocked:bool)
     @abstractmethod
-    def setIO(self, port:int, line:int, value:bool) -> bool:
+    def setIO(self, port:int, line:int, value:bool) -> tuple[bool, bool]:
         pass
 
     @abstractmethod
@@ -55,17 +56,26 @@ class GPIO_Dev(BaseDev):
     def waitForIO(self, port:int, line:int, waitinMethod:waitingType) -> tuple[bool, bool]:
         pass
 
+''' GPIOcontrol class
+    I/O control object representing a single input/ output line on a given device 
 
+    
+    
+'''
 class GPIOcontrol:
+    class IOType(Enum):
+        GPI = 0             # input
+        GPO = 1             # output
 
     # device: 'DAQ NI'  // 'GPIO NCT6102D' // PLC SingleIoControl // 'PLC Tc_IOSequencer' // 'Virtual IO' // etc
-    def __init__(self, _dname:str, _device:GPIO_Dev, __line:int, __port:int, parms:dict, __NO:bool = True):
+    def __init__(self, _dname:str, _device:GPIO_Dev, __line:int, __port:int, parms:dict, _io:IOType=IOType.GPI, __NO:bool = True):
+        self.__io:GPIOcontrol.IOType = _io
         self.__port:int = __port                 # default
         self.__line:int = __line
         self.__device: GPIO_Dev = _device
         self.devName:str = _dname
         self.wd = None
-        self.stop = True
+        self.stop: threading.Event = threading.Event()
         self.__opDev = None
         self.__window:sg.Window = None
         self.__stored_value:bool = False                     
@@ -83,7 +93,7 @@ class GPIOcontrol:
             print_err(f'ERROR starting interlock thread. Exception: {ex} of type: {type(ex)}.')
 
     def __repr__(self):
-        return f'I/O control: port{self.__port}.line{self.__line}, run on dev = {self.__device}, name = {self.devName} '
+        return f'I/O control: port{self.__port}.line{self.__line}, run on dev = {self.__device}, name = {self.devName}, NO/NC = {"NO" if self.__NO else "NC" }, IO type = {self.__io.name.name} '
 
     def getIODev(self)->str:
         return self.__device    
@@ -105,9 +115,9 @@ class GPIOcontrol:
                                                                     # check status when started
 
     def __opThread(self):
-        self.stop = False
+        self.stop.clear()
         print_log(f'Starting watchdog thread for I/O control {self.devName} dev of type {self.__device} (port{self.__port}.line{self.__line})')
-        while not self.stop and time.sleep(self.__pollingTimeout) is None:
+        while not self.stop.is_set() and time.sleep(self.__pollingTimeout) is None:
             if self.__opDev is None or self.__window is None:          # Op is not armed
                 continue
             
@@ -137,8 +147,11 @@ class GPIOcontrol:
         self.__window = None
 
     def mDev_stop(self):
-        self.stopOp()
-        self.stop = True
+        self.stopOp()                   # stop operation
+        self.stop.set()                 # stop thread
+        if self.wd is not None:         # wait for thread termination    
+            self.wd.join()
+            self.wd = None  
         
 
     def __del__(self):

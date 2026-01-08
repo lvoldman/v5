@@ -154,6 +154,7 @@ class systemDevices:
         self.__conf_file = _conf_file
         self.__params_file = _params_file   
         self.__platform_devs:abstractPlatformDevs = None
+        self.__plc_devs:abstractPlatformDevs = None
 
         try:
             with open(self.__conf_file) as p_file:
@@ -161,14 +162,27 @@ class systemDevices:
                 _keys = list(doc.keys())
                 print_log(f'Config file = {doc}, keys = {_keys}' )
                 if doc is not None:
-                    if 'ADS_NETID' in _keys or 'REMOTE_IP' in _keys:
-                        print_log(f'PLC platform detected in configuration file {self.__conf_file}')
-                        self.__platform_devs = plcPlatformDevs(self.__conf_file, self.__params_file)
-                    else:
-                        print_log(f'PC platform detected in configuration file {self.__conf_file}')
-                        self.__platform_devs = pcPlatformDevs(self.__conf_file, self.__params_file) 
+                    if 'PLC' in _keys:
+                        print_log(f'PLC platform(s) detected in configuration file {self.__conf_file}')
+                        for _plc_name, _plc_conf in doc['PLC'].items():
+                            print_log(f'Configuring PLC platform: {_plc_name} with parameters: {_plc_conf}')
+                        
+                        if _plc_name is  None or not isinstance(_plc_conf, dict) \
+                                    or 'ADS_NETID' not in _plc_conf.keys() or 'REMOTE_IP' not in _plc_conf.keys():
+                            raise Exception(f'Error: ADS_NETID or REMOTE_IP are not defined in PLC section for {_plc_name} the configuration file {self.__conf_file}')
+
+
+                        if len(doc['PLC']) > 1:
+                            print_err(f'Multiple PLC platforms defined in configuration file, only single PLC platform is supported currently')
+                            raise Exception(f'Multiple PLC platforms defined in configuration file, only single PLC platform is supported currently')
+
+                        self.__plc_devs = plcPlatformDevs(self.__conf_file, self.__params_file, _plc_conf['ADS_NETID'], _plc_conf['REMOTE_IP'])
+                    
+                    
+                    print_log(f'PC platform detected in configuration file {self.__conf_file}')
+                    self.__platform_devs = pcPlatformDevs(self.__conf_file, self.__params_file) 
         
-            print_log(f'Configured devices: {self.__platform_devs.getDevs()}')
+            print_log(f'Configured devices: {self.__platform_devs.getDevs() if self.__platform_devs is not None else "N/A"}, PLC devices: {self.__plc_devs.getDevs() if self.__plc_devs is not None else "N/A"}')
 
         except Exception as ex:
             print_err(f'Error reading parameters file, exception = {ex}')
@@ -206,7 +220,7 @@ class systemDevices:
         self[_devName] = _dev
 
     def getParams(self) -> dict:
-        return self.__platform_devs.allParams
+        return self.__platform_devs.params_table
     
     def getConfDevs(self) -> dict:
         return self.__platform_devs.getDevs()
@@ -234,7 +248,8 @@ class abstractPlatformDevs(ABC):
         #       {'TR': {"T1": 12345, "T2": 23456}, 'GR': {"G1": 34567}, 'ZB': {"Z1": 45678, "Z2": 56789}, 'RT': {"R1": 67890}, \
         #       'SP': {"S1": 78901}, 'CAM': {"CAM1": "124.45.67.89:123"}, 'NI': {"DAQ1": 4098}, 'HMP': {"H1": "12345"}, 'PHG': {"RELAY_NAME_1": "123456/7, TOGGLE|TRIGGER|ONOFF, TRUE|FALSE"}, 'DH': {"D1": 12345}, 'MCDMC': {"MCDMC1": "12345"}, 'MARCO': {"DISP1": "123.45.67.89:123"}, 'INTERLOCK': {"LCK1": "DAQ1"}, 'IOCONTROL': {"IO_NAME_1": "provider, port.line, NO/NC"}}
         self.allDevs:dict = None
-        self.allParams:dict = None
+        self.params_table:dict =  None
+
     
     @abstractmethod
     def loadConf(self, _sysDevs:systemDevices):
@@ -248,39 +263,64 @@ class abstractPlatformDevs(ABC):
     
     def getDevs(self):
         return self.allDevs
-    
+
+    @staticmethod
+    def read_params(params_file) -> dict:
+        print_inf(f'Read params from file {params_file}')
+        params_table = dict()
+        
+        try:
+            with open(params_file) as p_file:
+                doc = yaml.safe_load(p_file)
+                if doc is None:
+                    print_log(f'No parameters defined in the parameters file {params_file}')
+                    return params_table
+                
+                for dev, dev_parms in doc.items():       # devivce parm is a dictionary 
+                    params_table[dev] = dict()
+                    for i, parm in enumerate(dev_parms):
+                        params_table[dev][parm] = dev_parms[parm]
+
+                print_log(f'params_table={params_table}')
+
+                    
+
+        except Exception as ex:
+            print_err(f'Error reading parameters file, exception = {ex}')
+            exptTrace(ex)
+            pass
+        
+        return params_table
+
 
 class plcPlatformDevs(abstractPlatformDevs):
     _max_num_of_devs:int = None
 
-    def __init__(self, _config_file:str = None, _params_file:str = None):
+    def __init__(self, _config_file:str = None, _params_file:str = None, _ads_netid:str = None, _remote_ip:str = None):
+
         super().__init__()
-        self.ADS_NETID = None
-        self.REMOTE_IP = None
+        self.ADS_NETID = _ads_netid
+        self.REMOTE_IP = _remote_ip
         self._ads:commADS = None
-        self._plcDevs:dict = dict()   # {dev_name1: PLCDev1, dev_name2: PLCDev2, ...}
+        self._plcDevs:dict = dict()   # the way it presented in PLC (JSON)
         self.number_of_devs:int = 0
 
         self.__config_file = _config_file
         try:
-            with open(self.__config_file) as p_file:
-                doc = yaml.safe_load(p_file)
-                _keys = list(doc.keys())
-                if 'ADS_NETID' in  _keys or 'REMOTE_IP' in _keys:
-                    self.ADS_NETID = doc['ADS_NETID']
-                    self.REMOTE_IP = doc['REMOTE_IP']
-                else:
-                    raise Exception(f'Error: ADS_NETID or REMOTE_IP are not defined in the configuration file {_config_file}')
+         
+            if self.ADS_NETID is None or self.REMOTE_IP is None:
+                raise Exception(f'Error: ADS_NETID or REMOTE_IP are not defined ')
                 
-                _ams_re = r'\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(?:\.1\.1)\b'
-                _remip_re  = r'\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b'
-                _ams_re_compiled = re.compile(_ams_re)
-                _remip_re_compiled = re.compile(_remip_re)
-                if not _ams_re_compiled.match(self.ADS_NETID) or not _remip_re_compiled.match(self.REMOTE_IP):
-                    raise Exception(f'Error: Wrong ADS_NETID ({self.ADS_NETID}) or REMOTE_IP ({self.REMOTE_IP}) format in the configuration file {_config_file}')
-                
-                self._ads = commADS(self.ADS_NETID, self.REMOTE_IP)
-                plcPlatformDevs._max_num_of_devs = doc['MAX_NUM_OF_DEVS'] if 'MAX_NUM_OF_DEVS' in _keys else self._ads.readVar(symbol_name=symbolsADS._max_num_of_devs, var_type=int)
+            _ams_re = r'\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(?:\.1\.1)\b'
+            _remip_re  = r'\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b'
+            _ams_re_compiled = re.compile(_ams_re)
+            _remip_re_compiled = re.compile(_remip_re)
+            if not _ams_re_compiled.match(self.ADS_NETID) or not _remip_re_compiled.match(self.REMOTE_IP):
+                raise Exception(f'Error: Wrong ADS_NETID ({self.ADS_NETID}) or REMOTE_IP ({self.REMOTE_IP}) format in the configuration file {_config_file}')
+            
+            self._ads = commADS(self.ADS_NETID, self.REMOTE_IP)
+
+            plcPlatformDevs._max_num_of_devs = self._ads.readVar(symbol_name=symbolsADS._max_num_of_devs, var_type=int)
                 
 
 
@@ -289,25 +329,28 @@ class plcPlatformDevs(abstractPlatformDevs):
             exptTrace(ex)
             raise ex
     
-    def loadConf(self, _sysDevs:systemDevices):
+    def read_configuration(self):
         try: 
             print_log(f'PLC based devices operation. Load configuration from PLC at {self.REMOTE_IP}, AMS NET ID = {self.ADS_NETID}')
             
             _dev_idx = 0
 
             _devLst = PLCDev.enum_devs(_comADS=self._ads)
-            print_log(f'Found {_devLst} ({len(_devLst)}) devices in PLC configuration')
+            self.number_of_devs = len(_devLst)
+            print_log(f'Found {_devLst} ({self.number_of_devs}) devices in PLC configuration')
 
-            for _dev_idx, _dev_name in enumerate(_devLst):
-                _dev_name = _dev_name
-                if _dev_name is  None:
+            for _dev_idx, _plc_dev_name in enumerate(_devLst):
+                _plc_dev_name = _plc_dev_name
+                if _plc_dev_name is  None:
                     print_err(f'Unexpexted end of devices list. Error reading device name for device index {_dev_idx}')
                     break
-                _plcDev = PLCDev(dev_name=_dev_name, _comADS=self._ads)
+                                # device name got from PLC configuration
+                                # _plc_dev_name is the name defined in the PLC configuration
+                _plcDev = PLCDev(dev_name=dName, plc_dev_name=_plc_dev_name, _comADS=self._ads)
                 _cdev = CDev(C_type=DevType.PLCDEV, C_port=None, c_id=None, \
                                                             c_serialN=None, c_dev=_plcDev, c_gui=_dev_idx+1)
 
-                _sysDevs[_dev_name] = _cdev
+                _sysDevs[_plc_dev_name] = _cdev
                 print_log(f'Added PLC device: {_cdev}')
             if _dev_idx == 0:
                 print_err(f'No devices found in PLC configuration')
@@ -464,9 +507,14 @@ OMNIPULSE:
 
 '''
 Config file: 
-ADS_NETID: 123.456.78.90
-OR if it's not defined (empty) in the system enviroment variables, it will be read from the config file
-Config file (serials.yml) format w/examples:
+PLC:
+    PLC_NAME:
+        REMOTE_IP: '192.168.10.153'
+        ADS_NETID: '192.168.137.1.1.1'
+
+        
+# All devices defined by their serial numbers / IP addresses or PLC NAME/Device Name
+
 # Grippers
 GR: (Gn: s/n)
     G1: 512000099                          
@@ -476,6 +524,7 @@ TR:
 # Zaber -- stepper actuator(Zn: s/n)
 ZB:
     Z1: 123883
+    Z2: PLC_NAME/Coining Axis            # Operated via PLC
 # Rotators (Rn: s/n in decimal)
 RT: 
     R1: 1073807751                          # 0x40010187
@@ -496,15 +545,24 @@ PHG:
 # MARCO dispenser systems (DISPn: IP:port)
 MARCO:
     DISP1: 192.168.1.214:5020
-# DAQ (data acquisition) devices (DAQn: s/n in HEX)
-NI:
-    DAQ1: 020DC90D              #SN in DEC:34457869
-# IO control devices (provider, port.line, NO/NC)
+
+
+# IO control lines (Name: Device Name, port.line, NO/NC  or PLC_NAME, PLC_IO_NAME)
 IOCONTROL:
-    DOOR: DAQ1, port0.line0
-    EMERG: DAQ1, port0.line1, NC
-    ON_OFF_BUTTON: DAQ1, port0.line2
-    D1_D2_GRIPERS_TOGGLE:  DAQ1, port0.line3
+    GPI:                            # input  lines
+        DOOR: DAQ1, port0.line0
+        EMERG: DAQ1, port0.line1, NC
+        ON_OFF_BUTTON: DAQ1, port0.line2
+        D1_D2_GRIPERS_TOGGLE:  DAQ1, port0.line3
+        PISTON_HOME_SENSOR: PLC, PISTON_HOME
+    GPO:                           # output lines
+        START_BUTTON_LED: DAQ1, port1.line0
+        PNEUMOATIC_VALVE_1: PLC, PNEUMATIC_1
+        PNEUMOATIC_VALVE_2: PLC, PNEUMATIC_2
+    IO:                     # input/output devices (manufacturere/Serial Number  or PLC_NAAME))
+        DAQ1: NI, 020DC90D
+        PLC: PLC_NAME    
+
 # JTSE blower
 JTSE:
     BL: JTSE
@@ -513,23 +571,22 @@ JTSE:
 
 class pcPlatformDevs(abstractPlatformDevs):
     devTypesTbl:dict = {'TR':'T', 'GR':'G', 'ZB':'Z', 'RT':'R', 'SP':'S', 'NI':'DAQ', 'CAM':'CAM', 'HMP':'H', \
-                   'DH':'D', 'PHG':'*', 'MCDMC':'MCDMC', 'MARCO':'DISP', 'INTERLOCK':'LCK', 'IOCONTROL':'*', \
-                    'JTSE':'*'}
+                   'DH':'D', 'PHG':'*', 'MCDMC':'MCDMC', 'MARCO':'DISP', 'INTERLOCK':'LCK', 'IOCONTROL_GPI':'*', \
+                    'IOCONTROL_GPO':'*','JTSE':'*'}
     freeStyleDevs:set = set()
     def __init__(self, _config_file:str = 'serials.yml', _params_file:str = 'params.yml'):
+        
         super().__init__(_config_file, _params_file)
         self.__config_file = _config_file
         self.__params_file = _params_file
         self._serialPorts:dict = dict()   # {port: {'vid':, 'description':, 'hwid':, 'serial_number':, 'location':, 'manufacturer':, 'product':, 'interface':} }
         
-        self.__params_table:dict =  pcPlatformDevs.read_params(self.__params_file)  
-                                                        # {devName: {parm1: value1, parm2: value2, ...}, ...}
 
-        self.allParams = self.__params_table
-                                                                
         print_log(f'PC based devices operation. Load configuration from {self.__config_file} configuration file')
         self.allDevs = pcPlatformDevs.read_configuration(self.__config_file)
-        
+        self.params_table:dict =  pcPlatformDevs.read_params(_params_file)  
+                                                        # {devName: {parm1: value1, parm2: value2, ...}, ...}
+
 
     def loadConf(self, _sysDevs:systemDevices):
         
@@ -557,8 +614,20 @@ class pcPlatformDevs(abstractPlatformDevs):
             with open(configuration_file) as conf_file:
 
                 _allDevs = yaml.safe_load(conf_file)
+                _iteration_devs = _allDevs.copy()    # copy of the device dictionary
+                                                     #  to avoid 'dictionary changed size during iteration' error
                 print_log(f'conf. file = {_allDevs}')
-                for _dev_class, _devices in _allDevs.items():       # devs is a dictionary 
+                for _dev_class, _devices in _iteration_devs.items():       # devs is a dictionary 
+                    if _dev_class == 'PLC':
+                        print_log(f'Skipping PLC section {_iteration_devs[_dev_class]} in PC platform configuration file, ')
+                        _allDevs.pop(_dev_class)
+                        # PLC section is handled by plcPlatformDevs class
+                        continue
+                    elif _dev_class not in pcPlatformDevs.devTypesTbl.keys():
+                        print_err(f'Error: Unknown device class {_dev_class}={_iteration_devs[_dev_class]}, removed')
+                        _allDevs.pop(_dev_class)
+                        continue
+                        
                     print_log(f'_dev_class = {_dev_class}, _devices = {_devices}')
                     if _devices == None:
                         print_err(f'Error: Empty device list for dev type {_dev_class},  removed')
@@ -571,7 +640,8 @@ class pcPlatformDevs(abstractPlatformDevs):
                     elif pcPlatformDevs.devTypesTbl[_dev_class] == '*':
                         # for IO control and Phidgets relay we don't know the device ID format, 
                         # so we just verify name uniqueness
-                        for _dev in _devices.items():
+                        _iter_devs = _devices.copy()   # to avoid 'dictionary changed size during iteration' error
+                        for _dev in _iter_devs.items():
                             if _dev in pcPlatformDevs.freeStyleDevs:   
                                 print_err(f'Error: The device {_dev} of dev class {_dev_class} is already defined, removed')
                                 _devices.pop(_dev)
@@ -582,17 +652,19 @@ class pcPlatformDevs(abstractPlatformDevs):
                             _allDevs.pop(_devices)
                     else:
                         # _dev_re += fr'{pcPlatformDevs.devTypesTbl[_dev_class]}\d*'
-                        _dev_re = fr'{pcPlatformDevs.devTypesTbl[_dev_class]}\d*'
+                        _dev_re = fr'{pcPlatformDevs.devTypesTbl[_dev_class]}\d*'  # e.g. T1 for Trolleys
                         _dev_re_compiled = re.compile(_dev_re)
-                        for _dev, _id in _devices.items():
+                        _iter_devs = _devices.copy()   # to avoid 'dictionary changed size during iteration' error
+                        for _dev, _id in _iter_devs.items():
                             if not _dev_re_compiled.match(_dev):
-                                print_err(f'Error. Wrong format dev name {_dev} in dev class {_devices}, id= {_id}, removed')
+                                print_err(f'Error. Wrong format dev name {_dev} in dev class {_dev_class}={_devices}, id= {_id}, removed')
                                 _devices.pop(_dev)
                         if len(_devices) == 0:
                             print_err(f'No valid devices for dev class {_devices}. Removed')
                             _allDevs.pop(_devices)
 
-                print_log(f'All valid devices in confiration: {_allDevs}')
+                print_log(f'All valid devices in configuration: {_allDevs}')
+                print_log(f'FreeStyle devices: {pcPlatformDevs.freeStyleDevs}')
                         
             
         except Exception as ex:
@@ -605,33 +677,6 @@ class pcPlatformDevs(abstractPlatformDevs):
 
         return _allDevs
 
-    @staticmethod
-    def read_params(params_file) -> dict:
-        print_inf(f'Read params from file {params_file}')
-        params_table = dict()
-        
-        try:
-            with open(params_file) as p_file:
-                doc = yaml.safe_load(p_file)
-                if doc is None:
-                    print_log(f'No parameters defined in the parameters file {params_file}')
-                    return params_table
-                
-                for dev, dev_parms in doc.items():       # devivce parm is a dictionary 
-                    params_table[dev] = dict()
-                    for i, parm in enumerate(dev_parms):
-                        params_table[dev][parm] = dev_parms[parm]
-
-                print_log(f'params_table={params_table}')
-
-                    
-
-        except Exception as ex:
-            print_err(f'Error reading parameters file, exception = {ex}')
-            exptTrace(ex)
-            pass
-        
-        return params_table
 
 
     '''
@@ -682,7 +727,7 @@ class pcPlatformDevs(abstractPlatformDevs):
                                     continue
 
 
-                                dev_trolley = FH_Motor(ps.device, fh_baudrate, fh_timeout, self.__params_table, _devName)
+                                dev_trolley = FH_Motor(ps.device, fh_baudrate, fh_timeout, self.params_table, _devName)
                                 i_dev = CDev(DevType.TROLLEY, ps.device, ps.vid, _fhSN, dev_trolley, list(self.allDevs['TR'].keys()).index(_devName)+1)
 
                                 if not dev_trolley.init_dev(i_dev.C_type):
@@ -700,7 +745,7 @@ class pcPlatformDevs(abstractPlatformDevs):
                                     continue
 
 
-                                dev_gripper = FH_Motor(ps.device, fh_baudrate, fh_timeout, self.__params_table, _devName)
+                                dev_gripper = FH_Motor(ps.device, fh_baudrate, fh_timeout, self.params_table, _devName)
                                 i_dev = CDev(DevType.GRIPPER, ps.device, ps.vid, _fhSN, dev_gripper, list(self.allDevs['GR'].keys()).index(_devName)+1)
 
                                 if not dev_gripper.init_dev(i_dev.C_type):
@@ -718,7 +763,7 @@ class pcPlatformDevs(abstractPlatformDevs):
                                     continue
 
 
-                                dev_spinner = FH_Motor(ps.device, fh_baudrate, fh_timeout, self.__params_table, _devName)
+                                dev_spinner = FH_Motor(ps.device, fh_baudrate, fh_timeout, self.params_table, _devName)
                                 i_dev = CDev(DevType.TIME_ROTATOR, ps.device, ps.vid, _fhSN, dev_gripper, dev_spinner, list(self.allDevs['SP'].keys()).index(_devName)+1)
 
                                 if not dev_spinner.init_dev(i_dev.C_type):
@@ -753,7 +798,7 @@ class pcPlatformDevs(abstractPlatformDevs):
                                     if ps.description.split()[0] == sn:
                                         _devName = getDevbySN(self.allDevs['HMP'], sn)
                                         guiIND = list(self.allDevs['HMP'].keys()).index(_devName)+1
-                                        hmp_dev = HMP_PS(sn=sn, port=ps.device, parms=self.__params_table)
+                                        hmp_dev = HMP_PS(sn=sn, port=ps.device, parms=self.params_table)
                                         i_dev = CDev(DevType.HMP, ps.device, ps.description,
                                                         ps.serial_number, hmp_dev, guiIND)
 
@@ -779,7 +824,7 @@ class pcPlatformDevs(abstractPlatformDevs):
                             _devName = getDevbySN(self.allDevs['DH'], sn)
                             guiIND = list(self.allDevs['DH'].keys()).index(_devName)+1
 
-                            dh_dev = DH_ROB_RGI_modbus(sn=sn, port=ps.device, d_name = _devName, parms=self.__params_table)
+                            dh_dev = DH_ROB_RGI_modbus(sn=sn, port=ps.device, d_name = _devName, parms=self.params_table)
                             i_dev = CDev(DevType.DH, ps.device, None, \
                                             sn, dh_dev, guiIND)
                             if not dh_dev.init_dev(i_dev.C_type):
@@ -816,7 +861,7 @@ class pcPlatformDevs(abstractPlatformDevs):
                                         continue
                                     
                                     guiIND = list(self.allDevs['ZB'].keys()).index(_devName)+1
-                                    dev_zaber = Zaber_Motor(ind, ps.device, self.__params_table, devName)
+                                    dev_zaber = Zaber_Motor(ind, ps.device, self.params_table, devName)
                                     i_dev = CDev(DevType.ZABER, ps.device, device_id, serN, \
                                                         dev_zaber, guiIND)
                                     
@@ -918,7 +963,7 @@ class pcPlatformDevs(abstractPlatformDevs):
                     print_log (f'Undefined FHv3 device: {devFHv3}')
                     continue
 
-                dev_mDC = FH_Motor_v3(int(devFHv3.port), int(devFHv3.channel), self.__params_table, devName)
+                dev_mDC = FH_Motor_v3(int(devFHv3.port), int(devFHv3.channel), self.params_table, devName)
                 i_dev = CDev(devType, devFHv3.port, devFHv3.devinfo, \
                                 devFHv3.serialN, dev_mDC, guiIND)
                 
@@ -950,11 +995,11 @@ class pcPlatformDevs(abstractPlatformDevs):
         print_log('Scanning MAXON devs')
 
         try:
-            # mxnDev = bytes(self.__params_table['DEAFULT']['MAXON_DEV'], 'utf-8')
-            # mxnIntfc = bytes(self.__params_table['DEAFULT']['MAXON_INTERFACE'], 'utf-8')
+            # mxnDev = bytes(self.params_table['DEAFULT']['MAXON_DEV'], 'utf-8')
+            # mxnIntfc = bytes(self.params_table['DEAFULT']['MAXON_INTERFACE'], 'utf-8')
 
-            mxnDev =  assign_parm('DEFAULT', self.__params_table,  'MAXON_DEV')
-            mxnIntfc =  assign_parm('DEFAULT', self.__params_table,  'MAXON_INTERFACE')
+            mxnDev =  assign_parm('DEFAULT', self.params_table,  'MAXON_DEV')
+            mxnIntfc =  assign_parm('DEFAULT', self.params_table,  'MAXON_INTERFACE')
             print_log(f'MAXON parameters: DEV={mxnDev}, INTF={mxnIntfc}')
             
             if mxnDev is None or mxnIntfc is None:
@@ -989,7 +1034,7 @@ class pcPlatformDevs(abstractPlatformDevs):
                     print_log (f'Undefined MAXON device: {devMAXON}')
                     continue
 
-                dev_mDC = MAXON_Motor(devMAXON, self.__params_table, devName)
+                dev_mDC = MAXON_Motor(devMAXON, self.params_table, devName)
                 i_dev = CDev(devType, devMAXON.port, devMAXON, \
                                 devMAXON.sn, dev_mDC, guiIND)
                 
@@ -1029,7 +1074,7 @@ class pcPlatformDevs(abstractPlatformDevs):
                     devName = getDevbySN(self.allDevs['NI'], sn)
                     guiIND = list(self.allDevs['NI'].keys()).index(devName)+1
                     
-                    dev_ni = NI6002( devName, sn, self.__params_table)
+                    dev_ni = NI6002( devName, sn, self.params_table)
                     i_dev = CDev(devType, found_dev.device, found_dev.model, \
                                     found_dev.sn, dev_ni, guiIND)
                     
@@ -1046,7 +1091,7 @@ class pcPlatformDevs(abstractPlatformDevs):
                         for interIndex, interDev in enumerate(INTERLOCK):
                             if interDev == f'DAQ{guiIND}':
                                 iLockName = getDevbySN(self.allDevs['INTERLOCK'], interDev)
-                                dev_interlock = InterLock(iLockName, interDev, self.__params_table)
+                                dev_interlock = InterLock(iLockName, interDev, self.params_table)
                                 i_dev = CDev(DevType.INTERLOCK, None, None, \
                                         None, dev_interlock, interIndex+1)
                                 
@@ -1092,7 +1137,7 @@ class pcPlatformDevs(abstractPlatformDevs):
                     devName = getDevbySN(self.allDevs['ZABER'], ip)
                     guiIND = list(self.allDevs['ZABER'].keys()).index(devName)+1
 
-                    dev_mDC = Festo_Motor(_sn, ip, devName, self.__params_table)
+                    dev_mDC = Festo_Motor(_sn, ip, devName, self.params_table)
                     i_dev = CDev(devType, ip, '502', _sn, dev_mDC, \
                                                     guiIND)
                     _sysDevs[devName] = i_dev
@@ -1145,7 +1190,7 @@ class pcPlatformDevs(abstractPlatformDevs):
                     else:
                         _NO = True
                 
-                dev_iocontrol = IOcontrol(dev_name, __io_provider, __line, __port, self.__params_table, _NO)
+                dev_iocontrol = IOcontrol(dev_name, __io_provider, __line, __port, self.params_table, _NO)
                 i_dev = CDev(C_type=DevType.IOCONTROL, C_port=_pl, c_id=__io_provider, c_serialN=0, \
                                         c_dev = dev_iocontrol, c_gui=None)
                 
@@ -1210,7 +1255,7 @@ class pcPlatformDevs(abstractPlatformDevs):
                                 
 
                         if _dType:
-                            dev_phg = PhidgetRELAY(sn, chan, _dType, _dName, self.__params_table)
+                            dev_phg = PhidgetRELAY(sn, chan, _dType, _dName, self.params_table)
                             i_dev = CDev(DevType.PHG, found_dev.channelName, found_dev.channelClassName, \
                                             found_dev.devSN, dev_phg, guiIND)
                             _sysDevs[_dName] = i_dev
@@ -1252,7 +1297,7 @@ class pcPlatformDevs(abstractPlatformDevs):
                         # guiIND = ind + 1
                         # guiIND = CAM.index(connection)+1
                         guiIND = list(CAM.values()).index(connection)+1
-                        dev_cam = Cam_modbus(ip, port, self.__params_table, _devName)
+                        dev_cam = Cam_modbus(ip, port, self.params_table, _devName)
                         i_dev = CDev(DevType.CAM, connection, None, None,dev_cam, guiIND)
 
                         _sysDevs[_devName] = i_dev
@@ -1287,9 +1332,9 @@ class pcPlatformDevs(abstractPlatformDevs):
                 parm_re = re.compile(r'\b(?:\d{1,3}\.){3}\d{1,3}:\d{1,5}/\d{1,5}\b')
                 # _asyrilIPStr = get_parm(_devName, params_table, 'ASYRIL')
 
-                _asyrilIPStr = assign_parm(_devName, self.__params_table, 'ASYRIL',None)
+                _asyrilIPStr = assign_parm(_devName, self.params_table, 'ASYRIL',None)
                 __asyrilIPort = None if _asyrilIPStr is None else _asyrilIPStr.split('/')[0]
-                _robot_type = assign_parm(_devName, self.__params_table, 'TYPE', 'MECA500')
+                _robot_type = assign_parm(_devName, self.params_table, 'TYPE', 'MECA500')
 
                 if _asyrilIPStr is not None and _robot_type == 'MCS500':
                                                                         # Asyril is defined and SCARA robot (MCS500)
@@ -1299,7 +1344,7 @@ class pcPlatformDevs(abstractPlatformDevs):
                         if found_dev:
                             guiIND = list(MCDMC.keys()).index(_devName)+1
                             # guiIND = MCDMC.index(_ipAddr)+1
-                            dev_mcdmc = robotMecademic(_devName, _ipAddr,  self.__params_table)
+                            dev_mcdmc = robotMecademic(_devName, _ipAddr,  self.params_table)
                             i_dev = CDev(DevType.MCDMC, _ipAddr, None, \
                                             None, dev_mcdmc, guiIND)
                             
@@ -1318,7 +1363,7 @@ class pcPlatformDevs(abstractPlatformDevs):
                         if found_dev:
                             guiIND = list(MCDMC.values()).index(_ipAddr)+1
                             # guiIND = MCDMC.index(_ipAddr)+1
-                            dev_mcdmc = robotMeca500(_devName, _ipAddr,  self.__params_table)
+                            dev_mcdmc = robotMeca500(_devName, _ipAddr,  self.params_table)
                             i_dev = CDev(DevType.MCDMC, _ipAddr, None, \
                                             None, dev_mcdmc, guiIND)
                             _sysDevs[_devName] = i_dev
@@ -1354,7 +1399,7 @@ class pcPlatformDevs(abstractPlatformDevs):
 
                         # guiIND = MARCO.index(connection)+1
                         guiIND = list(MARCO.values()).index(connection)+1
-                        dev_marco = Marco_modbus(ip, port, self.__params_table, _devName )
+                        dev_marco = Marco_modbus(ip, port, self.params_table, _devName )
                         i_dev = CDev(DevType.MARCO, connection, None, None, dev_marco, guiIND)
                         _sysDevs[_devName] = i_dev
                         # devs.append(i_dev)
@@ -1374,8 +1419,8 @@ class pcPlatformDevs(abstractPlatformDevs):
 
         print_log('Adding DB')
         try:
-            _db = assign_parm('DB', self.__params_table, 'DB_NAME', 'production.db')
-            _tbl = assign_parm('DB', self.__params_table, 'TBL_NAME', 'statistic')
+            _db = assign_parm('DB', self.params_table, 'DB_NAME', 'production.db')
+            _tbl = assign_parm('DB', self.params_table, 'TBL_NAME', 'statistic')
             dev_DB = StatisticSQLite('DB', _db, _tbl)
             i_dev = CDev(DevType.DB, C_port=None, c_id=None, c_serialN=None, dev = dev_DB, c_gui=None)
             
