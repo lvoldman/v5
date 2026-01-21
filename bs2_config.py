@@ -25,6 +25,8 @@ import datetime, re
 from bs1_ads import commADS, symbolsADS
 from bs1_plc_dev import PLCDev
 from bs1_sysdev import sysDevice
+from bs1_marco_modbus import Marco_modbus
+from bs1_base_motor import BaseMotor, BaseDev
 
 if TYPE_CHECKING:
     from bs1_base_motor import BaseDev
@@ -39,7 +41,7 @@ if TYPE_CHECKING:
     # from bs1_phidget import PhidgetRELAY
     # from bs1_mecademic import robotMecademic
     # from bs1_meca500 import robotMeca500
-    from bs1_marco_modbus import Marco_modbus
+    # from bs1_marco_modbus import Marco_modbus
     from bs1_interlock import InterLock
     from bs1_io_control import IOcontrol
     from bs1_festo_modbus import Festo_Motor
@@ -107,6 +109,7 @@ class CDev:
         self.c_gui = c_gui
 
         self.__device:BaseDev = c_dev
+        assert(self.__device is None or isinstance(self.__device, BaseDev)), f'Wrong device type ({type(self.__device)}), expected BaseDev type'    
 
     def get_device(self):                       # for backward compatability 
         return self.__device
@@ -176,9 +179,13 @@ class systemDevices:
                             print_err(f'Multiple PLC platforms defined in configuration file, only single PLC platform is supported currently')
                             raise Exception(f'Multiple PLC platforms defined in configuration file, only single PLC platform is supported currently')
 
-                        self.__plc_devs = plcPlatformDevs(self.__conf_file, self.__params_file, _plc_conf['ADS_NETID'], _plc_conf['REMOTE_IP'])
-                    
-                    
+                        try:
+                            self.__plc_devs = plcPlatformDevs(self.__conf_file, self.__params_file, _plc_conf['ADS_NETID'], _plc_conf['REMOTE_IP'])
+                        except Exception as ex:            
+                            print_err(f'Error configuring PLC platform {_plc_name}, exception = {ex}')
+                            exptTrace(ex)
+                            self.__plc_devs = None
+                        
                     print_log(f'PC platform detected in configuration file {self.__conf_file}')
                     self.__platform_devs = pcPlatformDevs(self.__conf_file, self.__params_file) 
         
@@ -199,7 +206,12 @@ class systemDevices:
             print_err(f'Error scanning ports and loading devices, exception = {ex}')
             exptTrace(ex)        
             raise ex
-        
+    
+    @property
+    def PLCdevs(self) -> abstractPlatformDevs:
+        return self.__plc_devs
+    
+
     # bracket notation for getting/setting devices by name (example: sysDevs['T1'] / sysDevs['G1'] = CDev(...) )
     def __getitem__(self, _devName:str) -> CDev:
         return None if _devName not in self.__devs.keys() else self.__devs[_devName] 
@@ -251,10 +263,7 @@ class abstractPlatformDevs(ABC):
         self.params_table:dict =  None
 
     
-    @abstractmethod
-    def loadConf(self, _sysDevs:systemDevices):
-        pass
-    
+   
     def __getitem__(self, _devType):
         return None if _devType not in list(self.allDevs.keys()) else self.allDevs[_devType]
     
@@ -320,18 +329,38 @@ class plcPlatformDevs(abstractPlatformDevs):
             
             self._ads = commADS(self.ADS_NETID, self.REMOTE_IP)
 
-            plcPlatformDevs._max_num_of_devs = self._ads.readVar(symbol_name=symbolsADS._max_num_of_devs, var_type=int)
-                
+            # plcPlatformDevs._max_num_of_devs = self._ads.readVar(symbol_name=symbolsADS._max_num_of_devs, var_type=int)
+            
+            self.read_configuration()
 
 
         except Exception as ex:
             print_err(f'Error reading configuration file, exception = {ex}')
             exptTrace(ex)
             raise ex
-    
+        
+
+    def createPlatformDev(self, _sysDevs:systemDevices, dev_name:str, plc_dev_name:str)->BaseDev:
+        # create CDev objects for each PLC device and add them to the systemDevices object
+        try:
+            _dev:BaseDev = PLCDev(dev_name=dev_name, plc_dev_name=plc_dev_name, _comADS=self._ads)
+
+        except Exception as ex:
+            print_err(f'Error adding PLC platform device, exception = {ex}')
+            exptTrace(ex)   
+            _dev = None
+        
+        return _dev
+
+    # read configuration from PLC and create devices
+    # the system may be expanded to multyple PLC platforms in the future
+    # therefore, read_configuration is a instance method rather than static method  
     def read_configuration(self):
         try: 
-            print_log(f'PLC based devices operation. Load configuration from PLC at {self.REMOTE_IP}, AMS NET ID = {self.ADS_NETID}')
+            plcPlatformDevs._max_num_of_devs = self._ads.readVar(symbol_name=symbolsADS._max_num_of_devs, var_type=int)
+            print_log(f'PLC platform max number of devices = {plcPlatformDevs._max_num_of_devs}')
+
+            print_log(f'PLC based devices operation. Read configuration from PLC at {self.REMOTE_IP}, AMS NET ID = {self.ADS_NETID}')
             
             _dev_idx = 0
 
@@ -341,17 +370,14 @@ class plcPlatformDevs(abstractPlatformDevs):
 
             for _dev_idx, _plc_dev_name in enumerate(_devLst):
                 _plc_dev_name = _plc_dev_name
+                print_log(f'Reading PLC device index {_dev_idx}, PLC device name = {_plc_dev_name}')
                 if _plc_dev_name is  None:
                     print_err(f'Unexpexted end of devices list. Error reading device name for device index {_dev_idx}')
                     break
                                 # device name got from PLC configuration
                                 # _plc_dev_name is the name defined in the PLC configuration
-                _plcDev = PLCDev(dev_name=dName, plc_dev_name=_plc_dev_name, _comADS=self._ads)
-                _cdev = CDev(C_type=DevType.PLCDEV, C_port=None, c_id=None, \
-                                                            c_serialN=None, c_dev=_plcDev, c_gui=_dev_idx+1)
 
-                _sysDevs[_plc_dev_name] = _cdev
-                print_log(f'Added PLC device: {_cdev}')
+
             if _dev_idx == 0:
                 print_err(f'No devices found in PLC configuration')
         except Exception as ex:
@@ -601,9 +627,11 @@ class pcPlatformDevs(abstractPlatformDevs):
         self.__addCamDevs(_sysDevs)
         self.__addMecademicDevs(_sysDevs)
         self.__addMarcoDevs(_sysDevs)
+        self.__addPLCDevs(_sysDevs)
         
 
-
+    # static method to read configuration file and validate device names/formats
+    # it's static because the only one PV platform is available in the system
     @staticmethod
     def read_configuration(configuration_file:str) -> dict:
         _dev_class = None
@@ -1412,6 +1440,51 @@ class pcPlatformDevs(abstractPlatformDevs):
         
         except Exception as ex:
             print_log(f"Fail to add ModBus device. Exception: {ex}")
+            exptTrace(ex)
+
+
+    def __addPLCDevs(self, _sysDevs:systemDevices):
+        try:
+            with open(self.__config_file) as conf_file:
+                _plc_devs = None
+                _allDevs = yaml.safe_load(conf_file)
+                                                     #  to avoid 'dictionary changed size during iteration' error
+                if 'PLC' in _allDevs.keys():
+                    _plc_devs = _allDevs['PLC'].copy()
+                    print_log(f'PLC devices from config: {_plc_devs}')
+                else:
+                    print_log(f'No PLC devices defined in the configuration')
+                    return
+                     
+        except Exception as ex:
+            print_log(f"Fail to read configuration file {self.__config_file}. Exception: {ex}")
+            exptTrace(ex)
+            return
+        
+
+        print_log(f'Adding PLC devices from ({_plc_devs})')
+        
+        try:
+            for _devclass, _devgroup in self.allDevs.items():  #
+                guiIND:int = 0
+                if not isinstance(_devgroup, dict):
+                    print_log(f'WARNING: Skipping non dict device group: {_devclass}. group = {_devgroup}')
+                    continue
+                print_log(f'Looking for PLC in {_devclass} devices: {_devgroup} ')
+                for _devName, _devSN in _devgroup.items():
+                    guiIND += 1
+                    if _plc_devs is not None and str(_devSN).split('/')[0]  in _plc_devs.keys():
+                        print_log(f'Found PLC device {_devName} of class {_devclass} with name = { _devSN.split("/")[1] } on PLC {_devSN.split("/")[0]}')
+                        _new_plc = _sysDevs.PLCdevs.createPlatformDev(_sysDevs, dev_name=_devName, plc_dev_name=_devSN.split("/")[1])
+                        i_dev = CDev(DevType.PLCDEV, {_devSN.split("/")[0]}, None, None, _new_plc, guiIND)
+                        _sysDevs[_devName] = i_dev
+                    else:
+                        print_log(f'No PLC device found for {_devName} of class {_devclass} with SN = {_devSN}')
+
+            pass
+        
+        except Exception as ex:
+            print_log(f"Fail to add PLC device. Exception: {ex}")
             exptTrace(ex)
 
 

@@ -93,7 +93,7 @@ class GPIOcontrol:
             print_err(f'ERROR starting interlock thread. Exception: {ex} of type: {type(ex)}.')
 
     def __repr__(self):
-        return f'I/O control: port{self.__port}.line{self.__line}, run on dev = {self.__device}, name = {self.devName}, NO/NC = {"NO" if self.__NO else "NC" }, IO type = {self.__io.name.name} '
+        return f'I/O control: port{self.__port}.line{self.__line}, run on dev = {self.__device}, name = {self.devName}, NO/NC = {"NO" if self.__NO else "NC" }, IO type = {self.__io.name} '
 
     def getIODev(self)->str:
         return self.__device    
@@ -152,8 +152,19 @@ class GPIOcontrol:
         if self.wd is not None:         # wait for thread termination    
             self.wd.join()
             self.wd = None  
-        
+    
+    def getGPIValue(self)-> bool:
+        return self.__stored_value
 
+    def setGPOValue(self, value:bool)-> bool:
+        _res, _blocked = self.__device.setIO(self.__port, self.__line, value)
+        if not _res:
+            print_err(f'Failed set GPO value={value} on I/O control={self.devName} dev={self.__device} (port{self.__port}.line{self.__line})')
+            return False
+        return True
+    
+
+    
     def __del__(self):
         self.mDev_stop()
         time.sleep(self.__pollingTimeout)

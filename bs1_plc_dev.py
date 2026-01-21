@@ -84,7 +84,7 @@ class PLCDev(BaseDev):
 
     def __init__(self, dev_name:str, plc_dev_name:str, _comADS:commADS=None):
         try:
-            super().__init__(devName=dev_name)
+            super().__init__(port=plc_dev_name, devName=dev_name, parms=None)
             self._plcDevName:str = plc_dev_name
             self.__devAPI:dict =   None
             self.__devINFO:dict =  None
@@ -100,6 +100,7 @@ class PLCDev(BaseDev):
                                             # the caller about operation completion in async mode)
 
             self.__wd_thread_stop_event.set()    # initially stop the thread
+            PLCDev.__instances += 1
 
             assert _comADS is not None, 'PLCDev initialization failed: commADS instance is required'
 
@@ -142,7 +143,6 @@ class PLCDev(BaseDev):
             if PLCDev.__runner_factory is None:          # initialize runner factory
                 PLCDev.__runner_factory = runnerFactory(num_runners=PLCDev.__number_of_runners)
                 print_log(f'[device {self._devName}] PLCDev {self._plcDevName} runnerFactory instance created for {PLCDev.__number_of_runners} runners ')
-            PLCDev.__instances += 1
             print_log(f'[device {self._devName}] PLCDev {self._plcDevName} instance created. Total instances = {PLCDev.__instances}')
             
 
@@ -153,6 +153,7 @@ class PLCDev(BaseDev):
     
     def __del__(self):
         try:
+            PLCDev.__instances -= 1
             if self.__wd is not None and self.__wd.is_alive():
                 print_log(f'[device {self._devName}] PLCDev {self._plcDevName} __del__: Waiting for watch dog thread to end...')
                 self.__wd.join(timeout=5)
@@ -160,7 +161,7 @@ class PLCDev(BaseDev):
                     print_err(f'[device {self._devName}] PLCDev {self._plcDevName} __del__: Watch dog thread did not end within timeout')
                 else:
                     print_log(f'[device {self._devName}] PLCDev {self._plcDevName} __del__: Watch dog thread ended successfully')
-            PLCDev.__instances -= 1
+            
             print_log(f'[device {self._devName}] PLCDev {self._plcDevName} instance deleted. Total remaining instances = {PLCDev.__instances}')
             if PLCDev.__instances == 0:
                 del PLCDev.__ads
@@ -201,12 +202,12 @@ class PLCDev(BaseDev):
     def lookUpDev(dev_name:str) -> int:
         # Implementation to look up device index by name
         if PLCDev.devsList is None:
-            raise Exception(f'PLCDev lookUpDev: Device list is not initialized. Call enum_devs first.')
+            raise Exception(f'PLCDev lookUpDev device {dev_name}: Device list is not initialized. Call enum_devs first.')
         try:
             dev_index:int = PLCDev.devsList.index(dev_name)
             return dev_index
         except ValueError:
-            raise Exception(f'PLCDev lookUpDev: Device name "{dev_name}" not found in device list.')
+            raise Exception(f'PLCDev lookUpDev device {dev_name}: Device name not found in device list.')
 
     # runDevicesOp runner:int -> bool  -- starts runner operation for device loaded to run for given runner number
     # than oiperates watch dog thread to monitor operation status for each of devices assigned to the runner

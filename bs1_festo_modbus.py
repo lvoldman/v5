@@ -9,7 +9,6 @@ __status__ = "Prototype"
 
 import struct
 import time
-from typing import List
 import os
 import socket
 
@@ -185,9 +184,9 @@ Q   unsigned long long	integer	8
 
 class Festo_Motor (BaseMotor): 
 
-    devices:List[_dev_lst] = list()
+    devices:list[_dev_lst] = list()
     @staticmethod
-    def enum_devices()->List[_dev_lst]:
+    def enum_devices()->list[_dev_lst]:
         try:
             os.system('arp -a > scan.tmp')
             scan = np.loadtxt('.\scan.tmp', dtype='str', comments= ['Interface', 'Internet'] , usecols=0,  delimiter=None)
@@ -437,8 +436,6 @@ class Festo_Motor (BaseMotor):
             exptTrace(ex)
             print_err(f'FESTO ({self._devName}) failed to reset state on port {self._mDev_port}. Exception: {ex} of type: {type(ex)}.')
 
-    def  mDev_watch_dog_thread(self):
-        pass
 
     def mDev_stop(self) -> bool:                            # for compatability 
         self.__stopFlag = True
@@ -519,6 +516,15 @@ class Festo_Motor (BaseMotor):
         print_log (f'>>> Watch dog completed on {self.device_id} ({self.devName}) FESTO device,  position = {self.current_pos}, status = {self.success_flag}, actual current = {__cur}')
         self.devNotificationQ.put(self.success_flag)
         return
+
+    def rndMove(self, start:float=0, end:float=0)->bool:
+        import random
+        if start == end:
+            print_log(f'No movement. Start = {start}, End = {end}')
+            return True
+        _new_pos = random.randint(int(start*M2MM), int(end*M2MM))
+        return self.go2pos(_new_pos)
+
 
     # velocity in %
     # position in mm
@@ -678,6 +684,22 @@ class Festo_Motor (BaseMotor):
 
     def getTitle(self)->str:
         return self.__title
+
+    @staticmethod
+    def park_all():
+        print_log('Parking all FESTO devices is not implemented yet')
+    
+    @staticmethod
+    def unpark_all():
+        print_log('Unparking all FESTO devices is not implemented yet')
+
+    def is_parked(self) -> bool:
+        print_log('Parking state checking for FESTO devices is not implemented yet')
+        return False
+    
+    def mDev_vibrate(self)->bool: 
+        print_log('Vibration operation for FESTO devices is not implemented yet')
+        return True
 
 #-------------- class ^^^ ------------------    
 

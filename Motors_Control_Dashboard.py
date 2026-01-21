@@ -512,6 +512,18 @@ def initGUIDevs(window, devs_list:list[CDev]):
         elif m_dev.C_type == DevType.SYS:
             pass
 
+        elif m_dev.C_type == DevType.PLCDEV:
+            print_log(f'Activating PLCDEV GUI for device: {m_dev}/{m_dev.cDevice}')
+            window[f'-{m_dev.c_gui:02d}-ZABER-POSSITION-'].update(value = m_dev.cDevice.mDev_pos)
+            window[f'-{m_dev.c_gui:02d}-ZABER-VELOCITY-'].update(value = m_dev.cDevice.velocity)
+            ActivateMotorControl(window, DevType.ZABER, m_dev.c_gui)
+
+
+            _title = m_dev.get_device().getTitle()
+            print_log(f'PLCDEV GUI TITLE for {m_dev.cDevice.devName}, title = {_title}')
+            if _title:
+                window[f'-{m_dev.c_gui:02d}-ZABER-TITLE-'].update(_title)
+
         else:
             print_err(f'ERROR PANIC - wrong device {m_dev.C_type} in the list at {m_dev.c_gui} position')
 

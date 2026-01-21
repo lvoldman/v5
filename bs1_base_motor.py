@@ -100,7 +100,7 @@ class BaseMotor(BaseDev):
         self._mDev_port:str = port
 
         self._mDev_type:str = None                           # devise type (DevType.ROTATOR / DevType.GRIPPERv3 / DevType.DIST_ROTATOR / DevType.TIME_ROTATOR (SPINNER))/ DevType.DHGRIPPER
-        self._mDev_pos:int = 0                               #  current position 
+        self._mDev_pos:float = 0                               #  current position 
         self._el_current_limit:int = 0                       # electrical current limit to stop 
         self._el_current_on_the_fly:int = 0                  # On-the-fly current         
         self._wd:threading.Thread = None                     # watch dog identificator
@@ -114,6 +114,7 @@ class BaseMotor(BaseDev):
         self._start_time: float = 0                                   # Start thread time
         self._success_flag:bool = True                            # end of op flag
         self._rotationTime:float = 0                               # rotation time
+        self.velocity:int = 0                                   # default velocity
         self._title:str = None
 
                 
@@ -129,6 +130,10 @@ class BaseMotor(BaseDev):
     def  mDev_watch_dog_thread(self):
         pass
 
+    @property
+    def mDev_pos(self)->float:
+        return self._mDev_pos
+    
     @property
     def OnOff(self)->bool:
         return self._gripper_onoff
