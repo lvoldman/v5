@@ -84,7 +84,7 @@ class PLCDev(BaseDev):
 
     def __init__(self, dev_name:str, plc_dev_name:str, _comADS:commADS=None):
         try:
-            super().__init__(port=plc_dev_name, devName=dev_name, parms=None)
+            super().__init__(devName=dev_name, parms=None)
             self._plcDevName:str = plc_dev_name
             self.__devAPI:dict =   None
             self.__devINFO:dict =  None
@@ -205,9 +205,10 @@ class PLCDev(BaseDev):
             raise Exception(f'PLCDev lookUpDev device {dev_name}: Device list is not initialized. Call enum_devs first.')
         try:
             dev_index:int = PLCDev.devsList.index(dev_name)
+            print_log(f'PLCDev lookUpDev device {dev_name}: Found device at index {dev_index}')
             return dev_index
         except ValueError:
-            raise Exception(f'PLCDev lookUpDev device {dev_name}: Device name not found in device list.')
+            raise Exception(f'PLCDev lookUpDev device {dev_name}: Device name not found in device list: {PLCDev.devsList}')
 
     # runDevicesOp runner:int -> bool  -- starts runner operation for device loaded to run for given runner number
     # than oiperates watch dog thread to monitor operation status for each of devices assigned to the runner

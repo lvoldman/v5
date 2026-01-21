@@ -1476,8 +1476,13 @@ class pcPlatformDevs(abstractPlatformDevs):
                     if _plc_devs is not None and str(_devSN).split('/')[0]  in _plc_devs.keys():
                         print_log(f'Found PLC device {_devName} of class {_devclass} with name = { _devSN.split("/")[1] } on PLC {_devSN.split("/")[0]}')
                         _new_plc = _sysDevs.PLCdevs.createPlatformDev(_sysDevs, dev_name=_devName, plc_dev_name=_devSN.split("/")[1])
-                        i_dev = CDev(DevType.PLCDEV, {_devSN.split("/")[0]}, None, None, _new_plc, guiIND)
-                        _sysDevs[_devName] = i_dev
+                        if _new_plc is not None:
+                            i_dev = CDev(DevType.PLCDEV, {_devSN.split("/")[0]}, None, None, _new_plc, guiIND)
+                            _sysDevs[_devName] = i_dev
+                            print_log(f'PLC device {_devName} of class {_devclass} with SN = {_devSN} succesfully added')
+                        else:
+                            print_log(f'Error creating instance of PLC device {_devName} of class {_devclass} with SN = {_devSN}')
+
                     else:
                         print_log(f'No PLC device found for {_devName} of class {_devclass} with SN = {_devSN}')
 
