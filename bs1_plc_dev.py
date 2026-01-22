@@ -89,15 +89,10 @@ class PLCDev(BaseDev):
             self.__devAPI:dict =   None
             self.__devINFO:dict =  None
             self._dev_info:dict = None
-            self.__wd = None                 # watch dog thread for async operations
             self.__runnerNum:int = None        # runner number assigned to the device
             self.__wd_thread_stop_event = threading.Event()  # event to stop WD thread
             self.__lastCmd:dict = None          # last command executed
             self.success_flag = False          # flag to indicate successful operation
-
-
-            self.devNotificationQ = Queue()  # notification queue for device events (uses for notification 
-                                            # the caller about operation completion in async mode)
 
             self.__wd_thread_stop_event.set()    # initially stop the thread
             PLCDev.__instances += 1

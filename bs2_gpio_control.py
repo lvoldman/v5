@@ -20,13 +20,16 @@ from bs1_base_motor import BaseDev
 
 
 DEFAULT_TIMEOUT = 1
+from bs1_ni6002 import NI6002
 
+# GPIO_Dev class is a base class for GPIO devices like NI DAQ, NCT6102D, PLC IO modules etc
+# It defines the basic GPIO operations interface
+# Each of the derived classes should implement the methods below
+# GPIO_Dev derived classes should be able to implement the low level device specific commands   
+# The GPIOcontrol class uses GPIO_Dev derived class object to operate a single IO line on the given device
+# No dirrect device commands should be implemented in GPIOcontrol class
+# GPIO_Dev derived classes have no dirrect inteface open for user (via GUI or script), only via GPIOcontrol class objects
 class GPIO_Dev(BaseDev):
-    class waitingType(Enum):
-        waitL = 0                   # wait for FALSE signal on lin e(low)
-        waitRE = 1                  # wait for RISING EDGE on line
-        waitFE = 2                  # wait for FALLING EDGE on line
-        waitH = 3                # wait for TRUE signal on line (high)
 
     def __init__(self, devName:str, parms:dict=None):
         super().__init__(devName, parms)
@@ -48,12 +51,14 @@ class GPIO_Dev(BaseDev):
     def setIO(self, port:int, line:int, value:bool) -> tuple[bool, bool]:
         pass
 
+    # getIO return input gpIO value (value:bool, blocked:bool)
     @abstractmethod
     def getIO(self, port:int, line:int) -> tuple[bool, bool]:
         pass
 
+    # blocking wait for IO line event: line state or state change according to waitingMethod
     @abstractmethod
-    def waitForIO(self, port:int, line:int, waitinMethod:waitingType) -> tuple[bool, bool]:
+    def waitForIO(self, port:int, line:int, waitingMethod:waitingType) -> tuple[bool, bool]:
         pass
 
 ''' GPIOcontrol class
@@ -62,18 +67,23 @@ class GPIO_Dev(BaseDev):
     
     
 '''
-class GPIOcontrol:
+class GPIOcontrol(BaseDev):
+    class waitingType(Enum):
+        waitL = 0                   # wait for FALSE signal on line(low)
+        waitRE = 1                  # wait for RISING EDGE on line
+        waitFE = 2                  # wait for FALLING EDGE on line
+        waitH = 3                # wait for TRUE signal on line (high)
     class IOType(Enum):
         GPI = 0             # input
         GPO = 1             # output
 
     # device: 'DAQ NI'  // 'GPIO NCT6102D' // PLC SingleIoControl // 'PLC Tc_IOSequencer' // 'Virtual IO' // etc
     def __init__(self, _dname:str, _device:GPIO_Dev, __line:int, __port:int, parms:dict, _io:IOType=IOType.GPI, __NO:bool = True):
+        super().__init__(devName=_dname, parms=parms)
         self.__io:GPIOcontrol.IOType = _io
         self.__port:int = __port                 # default
         self.__line:int = __line
         self.__device: GPIO_Dev = _device
-        self.devName:str = _dname
         self.wd = None
         self.stop: threading.Event = threading.Event()
         self.__opDev = None
