@@ -2,8 +2,11 @@ PLC:
     COINING_PLC:
         # REMOTE_IP: '192.168.10.153'
         # ADS_NETID: '192.168.137.1.1.1'
-        REMOTE_IP: '192.168.10.96'
-        ADS_NETID: '192.168.10.96.1.1'        
+        # REMOTE_IP: '192.168.10.96'
+        # ADS_NETID: '192.168.10.96.1.1'        
+        REMOTE_IP: '192.168.10.172'
+        ADS_NETID: '192.168.10.153.1.1'        
+
 
 GR:
     G1: 1073807704                       # Node 1  0x40010158 / gripper

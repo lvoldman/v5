@@ -1,0 +1,74 @@
+PLC:
+    COINING_PLC:
+        # REMOTE_IP: '192.168.10.153'
+        # ADS_NETID: '192.168.137.1.1.1'
+        REMOTE_IP: '192.168.10.96'
+        ADS_NETID: '192.168.10.96.1.1'        
+
+GR:
+    G1: 1073807704                       # Node 1  0x40010158 / gripper
+    G2: 1073832595                       #  0x40016293  / Back trolley screw
+    G3: 1073833028                       # 0x40016444  / Front trolley screw
+
+
+ZB:
+     
+    Z1: 128517                              # 1
+    Z2: 128717                              # 2
+    Z3: 128723                              # 3
+    Z4: 128758                              # 4
+    Z5: 128759                              # 5
+    Z6: COINING_PLC/Coining Axis            # Operated via PLC
+    Z7: COINING_PLC/Parallel Axis            # Operated via PLC
+
+
+
+RT: 
+                                        # Rotators   
+
+    R1: 1073780231                       # 0x40009607  - Node 2  / Front trolley roller
+    R2: 1073833029                       # 0x40016445  - Node 5  / back trolley roller
+    R3: COINING_PLC/Correcting PCB       # Operated via PLC
+
+CAM:   
+    CAM1: 192.168.230.55:1502
+
+PHG:
+    JTSE_HOTAIR: 700627/0, TRIGGER
+    GREEN: 700627/1, ONOFF, FALSE
+    YELLOW: 700627/2, ONOFF, FALSE
+    RED: 700627/3, ONOFF, FALSE
+    ALARM: 700627/4, TRIGGER, FALSE
+    GRIPPER_AIR: 700627/5, TRIGGER 
+    COGNEX_LIGHT: 700627/6, TRIGGER
+    ROTATE_PISTON: 700627/7, ONOFF 
+
+MARCO:
+    DISP1: 192.168.1.214:5020
+
+
+MCDMC:
+    MCDMC: 192.168.0.100
+
+JTSE:
+    BL: JTSE
+
+DH:
+    D1: 8838
+    D2: 8825
+    
+IOCONTROL_GPI:
+    DOOR: DAQ1, port0.line0
+    EMERG: DAQ1, port0.line1, NC
+    ON_OFF_BUTTON: DAQ1, port0.line2
+    D1_D2_GRIPERS_TOGGLE:  DAQ1, port0.line3
+    PISTON_HOME_SENSOR: PLC, PISTON_HOME
+
+IOCONTROL_GPO:
+    PNEUMOATIC_VALVE_1: PLC, PNEUMATIC_1, TRIGGER, FALSE
+    PNEUMOATIC_VALVE_2: PLC, PNEUMATIC_2, TRIGGER, FALSE
+    LIGHT_RED: DAQ1, port1.line0, ONOFF, TRUE
+
+IOCONTROL_IODEVICES: 
+    DAQ1: NI, 020DC90D
+    PLC: COINING_PLC    

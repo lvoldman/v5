@@ -48,11 +48,11 @@ import threading
 
 
 class BaseDev(ABC):
-    def __init__(self, devName:str, parms:dict=None):
-        self._parms:dict = parms                # device parameters dictionary
+    def __init__(self, devName:str, parms:dict | None = None):
+        self._parms:dict | None = parms                # device parameters dictionary
         self._devName:str = devName          # device name
         self._dev_lock:Lock = Lock()        # device lock for mutual exclusive access
-        self._wd:threading.Thread = None        # watch dog thread identificator
+        self._wd:threading.Thread | None = None        # watch dog thread identificator
         self.devNotificationQ:Queue = Queue()   # notification queue for device events (uses for notification 
                                                 # the caller about operation completion in async mode)
 

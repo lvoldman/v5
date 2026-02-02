@@ -140,7 +140,7 @@ class commADS:
             exptTrace(ex)
 
     # def readVar(self, symbol_name:str, variable:object = None, size:int = None) -> str | int | bool | float | list | tuple | None:
-    def readVar(self, symbol_name:str, var_type:type = None, size:int = None) -> str | int | bool | float | list | dict | None:
+    def readVar(self, symbol_name:str, var_type:type | None = None, size:int | None  = None) -> str | int | bool | float | list | dict | None:
         ret_val = None
         try:
             if self.__plc is None:
@@ -167,7 +167,7 @@ class commADS:
             exptTrace(ex)
             raise ex    
 
-    def writeVar(self, symbol_name:str, dataToSend:object = None) -> bool:
+    def writeVar(self, symbol_name:str, dataToSend:object | None = None) -> bool:
         try:
             var_type = type(dataToSend)
             if var_type == str:

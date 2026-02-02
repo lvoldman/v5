@@ -1,0 +1,467 @@
+2026-01-26 14:51:53,021: bs1_ads.py--__init__/119 -- 4184 [MainThread] ADS INFO: Connecting to PLC with AMS NET ID=192.168.10.153.1.1 at IP=192.168.10.172 on port=851...
+2026-01-26 14:51:53,025: bs1_ads.py--__init__/127 -- 4184 [MainThread] ADS INFO: Connected to PLC NAME = Plc30 App VER= <pyads.structs.AdsVersion object at 0x0000021FE08256D0>, State=(5, 0)
+2026-01-26 14:51:53,029: bs1_plc_dev.py--enum_devs/179 -- 4184 [MainThread] PLCDev enum_devs: Number of configured devices in PLC = 3
+2026-01-26 14:51:53,035: bs1_plc_dev.py--enum_devs/185 -- 4184 [MainThread] PLCDev enum_devs: Device index 0, name = Coining Axis
+2026-01-26 14:51:53,041: bs1_plc_dev.py--enum_devs/185 -- 4184 [MainThread] PLCDev enum_devs: Device index 1, name = Dremel
+2026-01-26 14:51:53,046: bs1_plc_dev.py--enum_devs/185 -- 4184 [MainThread] PLCDev enum_devs: Device index 2, name = Single IO
+2026-01-26 14:51:53,046: bs1_plc_dev.py--enum_devs/187 -- 4184 [MainThread] PLCDev enum_devs: Total enumerated devices = 3: ['Coining Axis', 'Dremel', 'Single IO']
+2026-01-26 14:51:53,046: bs1_plc_dev.py--lookUpDev/203 -- 4184 [MainThread] PLCDev lookUpDev device Coining Axis: Found device at index 0
+2026-01-26 14:51:53,046: bs1_plc_dev.py--__init__/110 -- 4184 [MainThread] [device Device_0] PLCDev Coining Axis initialized with provided commADS instance
+2026-01-26 14:51:53,059: bs1_plc_dev.py--__init__/121 -- 4184 [MainThread] [device Device_0] PLCDev Coining Axis read _instanceInfo and _API from PLC for device index = 1: 
+2026-01-26 14:51:53,059: bs1_plc_dev.py--__init__/129 -- 4184 [MainThread] [device Device_0] Coining Axis: _instanceInfo = {
+ "Pos": 0.0,
+ "Torq": 0.0,
+ "Vel": 0.0,
+ "PointIndex": 0,
+ "PointName": "",
+ "Status": "ERROR"
+}
+2026-01-26 14:51:53,060: bs1_plc_dev.py--__init__/130 -- 4184 [MainThread] [device Device_0] Coining Axis: _API = {
+ "DeviceType": "Single Axis",
+ "InstanceName": "Coining Axis",
+ "Tasks": [
+  {
+   "TaskName": "Move Absolute",
+   "Parameters": [
+    {
+     "ParamName": "Pos",
+     "ParamType": "NUMBER",
+     "ParamDefault": 0.0
+    },
+    {
+     "ParamName": "Point",
+     "ParamType": "STRING",
+     "ParamDefault": ""
+    },
+    {
+     "ParamName": "ByIndex",
+     "ParamType": "BOOL",
+     "ParamDefault": false
+    },
+    {
+     "ParamName": "Custom",
+     "ParamType": "BOOL",
+     "ParamDefault": false
+    },
+    {
+     "ParamName": "Profile",
+     "ParamType": "NUMBER",
+     "ParamDefault": 1.0
+    },
+    {
+     "ParamName": "Vel",
+     "ParamType": "NUMBER",
+     "ParamDefault": 0.0
+    },
+    {
+     "ParamName": "Acc",
+     "ParamType": "NUMBER",
+     "ParamDefault": 0.0
+    },
+    {
+     "ParamName": "Dec",
+     "ParamType": "NUMBER",
+     "ParamDefault": 0.0
+    },
+    {
+     "ParamName": "Jerk",
+     "ParamType": "NUMBER",
+     "ParamDefault": 0.0
+    },
+    {
+     "ParamName": "Subscribe",
+     "ParamType": "STRING",
+     "ParamDefault": ""
+    }
+   ]
+  },
+  {
+   "TaskName": "Move Relative",
+   "Parameters": [
+    {
+     "ParamName": "Dis",
+     "ParamType": "NUMBER",
+     "ParamDefault": 0.0
+    },
+    {
+     "ParamName": "Custom",
+     "ParamType": "BOOL",
+     "ParamDefault": false
+    },
+    {
+     "ParamName": "Profile",
+     "ParamType": "NUMBER",
+     "ParamDefault": 1.0
+    },
+    {
+     "ParamName": "Vel",
+     "ParamType": "NUMBER",
+     "ParamDefault": 0.0
+    },
+    {
+     "ParamName": "Acc",
+     "ParamType": "NUMBER",
+     "ParamDefault": 0.0
+    },
+    {
+     "ParamName": "Dec",
+     "ParamType": "NUMBER",
+     "ParamDefault": 0.0
+    },
+    {
+     "ParamName": "Jerk",
+     "ParamType": "NUMBER",
+     "ParamDefault": 0.0
+    },
+    {
+     "ParamName": "Subscribe",
+     "ParamType": "STRING",
+     "ParamDefault": ""
+    }
+   ]
+  },
+  {
+   "TaskName": "Jog To Position",
+   "Parameters": []
+  },
+  {
+   "TaskName": "Jog Relative",
+   "Parameters": []
+  },
+  {
+   "TaskName": "Move Velocity",
+   "Parameters": [
+    {
+     "ParamName": "Vel",
+     "ParamType": "NUMBER",
+     "ParamDefault": 0.0
+    },
+    {
+     "ParamName": "Acc",
+     "ParamType": "NUMBER",
+     "ParamDefault": 0.0
+    },
+    {
+     "ParamName": "Dec",
+     "ParamType": "NUMBER",
+     "ParamDefault": 0.0
+    },
+    {
+     "ParamName": "Jerk",
+     "ParamType": "NUMBER",
+     "ParamDefault": 0.0
+    }
+   ]
+  },
+  {
+   "TaskName": "Move Until Torque",
+   "Parameters": []
+  },
+  {
+   "TaskName": "Home",
+   "Parameters": []
+  },
+  {
+   "TaskName": "Stop Motion",
+   "Parameters": []
+  },
+  {
+   "TaskName": "Power",
+   "Parameters": [
+    {
+     "ParamName": "Command",
+     "ParamType": "BOOL",
+     "ParamDefault": true
+    }
+   ]
+  },
+  {
+   "TaskName": "Set Ovrride",
+   "Parameters": []
+  },
+  {
+   "TaskName": "Is Homed",
+   "Parameters": []
+  },
+  {
+   "TaskName": "Get Position",
+   "Parameters": []
+  },
+  {
+   "TaskName": "Jog to IO",
+   "Parameters": []
+  },
+  {
+   "TaskName": "Set Index",
+   "Parameters": [
+    {
+     "ParamName": "Index",
+     "ParamType": "NUMBER",
+     "ParamDefault": 1.0
+    }
+   ]
+  },
+  {
+   "TaskName": "Set Torque",
+   "Parameters": [
+    {
+     "ParamName": "Command",
+     "ParamType": "STRING",
+     "ParamDefault": "Up"
+    },
+    {
+     "ParamName": "Torque",
+     "ParamType": "NUMBER",
+     "ParamDefault": 0.0
+    },
+    {
+     "ParamName": "FillterTime[ms]",
+     "ParamType": "NUMBER",
+     "ParamDefault": 300.0
+    },
+    {
+     "ParamName": "StartTorque",
+     "ParamType": "NUMBER",
+     "ParamDefault": 100.0
+    }
+   ]
+  }
+ ],
+ "DeviceInfo": [
+  {
+   "ParamName": "Pos",
+   "ParamType": "NUMBER"
+  },
+  {
+   "ParamName": "Torq",
+   "ParamType": "NUMBER"
+  },
+  {
+   "ParamName": "Vel",
+   "ParamType": "NUMBER"
+  },
+  {
+   "ParamName": "PointIndex",
+   "ParamType": "NUMBER"
+  },
+  {
+   "ParamName": "PointName",
+   "ParamType": "STRING"
+  }
+ ]
+}
+2026-01-26 14:51:53,070: bs1_plc_dev.py--__init__/133 -- 4184 [MainThread] [device Device_0] PLCDev Coining Axis initialized. Device index = 1, devAPI size = 4 / {'DeviceType': 'Single Axis', 'InstanceName': 'Coining Axis', 'Tasks': [{'TaskName': 'Move Absolute', 'Parameters': [{'ParamName': 'Pos', 'ParamType': 'NUMBER', 'ParamDefault': 0.0}, {'ParamName': 'Point', 'ParamType': 'STRING', 'ParamDefault': ''}, {'ParamName': 'ByIndex', 'ParamType': 'BOOL', 'ParamDefault': False}, {'ParamName': 'Custom', 'ParamType': 'BOOL', 'ParamDefault': False}, {'ParamName': 'Profile', 'ParamType': 'NUMBER', 'ParamDefault': 1.0}, {'ParamName': 'Vel', 'ParamType': 'NUMBER', 'ParamDefault': 0.0}, {'ParamName': 'Acc', 'ParamType': 'NUMBER', 'ParamDefault': 0.0}, {'ParamName': 'Dec', 'ParamType': 'NUMBER', 'ParamDefault': 0.0}, {'ParamName': 'Jerk', 'ParamType': 'NUMBER', 'ParamDefault': 0.0}, {'ParamName': 'Subscribe', 'ParamType': 'STRING', 'ParamDefault': ''}]}, {'TaskName': 'Move Relative', 'Parameters': [{'ParamName': 'Dis', 'ParamType': 'NUMBER', 'ParamDefault': 0.0}, {'ParamName': 'Custom', 'ParamType': 'BOOL', 'ParamDefault': False}, {'ParamName': 'Profile', 'ParamType': 'NUMBER', 'ParamDefault': 1.0}, {'ParamName': 'Vel', 'ParamType': 'NUMBER', 'ParamDefault': 0.0}, {'ParamName': 'Acc', 'ParamType': 'NUMBER', 'ParamDefault': 0.0}, {'ParamName': 'Dec', 'ParamType': 'NUMBER', 'ParamDefault': 0.0}, {'ParamName': 'Jerk', 'ParamType': 'NUMBER', 'ParamDefault': 0.0}, {'ParamName': 'Subscribe', 'ParamType': 'STRING', 'ParamDefault': ''}]}, {'TaskName': 'Jog To Position', 'Parameters': []}, {'TaskName': 'Jog Relative', 'Parameters': []}, {'TaskName': 'Move Velocity', 'Parameters': [{'ParamName': 'Vel', 'ParamType': 'NUMBER', 'ParamDefault': 0.0}, {'ParamName': 'Acc', 'ParamType': 'NUMBER', 'ParamDefault': 0.0}, {'ParamName': 'Dec', 'ParamType': 'NUMBER', 'ParamDefault': 0.0}, {'ParamName': 'Jerk', 'ParamType': 'NUMBER', 'ParamDefault': 0.0}]}, {'TaskName': 'Move Until Torque', 'Parameters': []}, {'TaskName': 'Home', 'Parameters': []}, {'TaskName': 'Stop Motion', 'Parameters': []}, {'TaskName': 'Power', 'Parameters': [{'ParamName': 'Command', 'ParamType': 'BOOL', 'ParamDefault': True}]}, {'TaskName': 'Set Ovrride', 'Parameters': []}, {'TaskName': 'Is Homed', 'Parameters': []}, {'TaskName': 'Get Position', 'Parameters': []}, {'TaskName': 'Jog to IO', 'Parameters': []}, {'TaskName': 'Set Index', 'Parameters': [{'ParamName': 'Index', 'ParamType': 'NUMBER', 'ParamDefault': 1.0}]}, {'TaskName': 'Set Torque', 'Parameters': [{'ParamName': 'Command', 'ParamType': 'STRING', 'ParamDefault': 'Up'}, {'ParamName': 'Torque', 'ParamType': 'NUMBER', 'ParamDefault': 0.0}, {'ParamName': 'FillterTime[ms]', 'ParamType': 'NUMBER', 'ParamDefault': 300.0}, {'ParamName': 'StartTorque', 'ParamType': 'NUMBER', 'ParamDefault': 100.0}]}], 'DeviceInfo': [{'ParamName': 'Pos', 'ParamType': 'NUMBER'}, {'ParamName': 'Torq', 'ParamType': 'NUMBER'}, {'ParamName': 'Vel', 'ParamType': 'NUMBER'}, {'ParamName': 'PointIndex', 'ParamType': 'NUMBER'}, {'ParamName': 'PointName', 'ParamType': 'STRING'}]}, devINFO size = 6 / {'Pos': 0.0, 'Torq': 0.0, 'Vel': 0.0, 'PointIndex': 0, 'PointName': '', 'Status': 'ERROR'} 
+2026-01-26 14:51:53,081: bs1_plc_dev.py--__init__/137 -- 4184 [MainThread] [device Device_0] PLCDev Coining Axis initialized with __number_of_runners = 20
+2026-01-26 14:51:53,081: bs1_plc_dev.py--__init__/140 -- 4184 [MainThread] [device Device_0] PLCDev Coining Axis runnerFactory instance created for 20 runners 
+2026-01-26 14:51:53,082: bs1_plc_dev.py--__init__/141 -- 4184 [MainThread] [device Device_0] PLCDev Coining Axis instance created. Total instances = 1
+2026-01-26 14:51:53,083: bs1_plc_dev.py--lookUpDev/203 -- 4184 [MainThread] PLCDev lookUpDev device Dremel: Found device at index 1
+2026-01-26 14:51:53,089: bs1_plc_dev.py--__init__/114 -- 4184 [MainThread] [device Device_1] PLCDev Dremel initialized with existing commADS instance
+2026-01-26 14:51:53,101: bs1_plc_dev.py--__init__/121 -- 4184 [MainThread] [device Device_1] PLCDev Dremel read _instanceInfo and _API from PLC for device index = 2: 
+2026-01-26 14:51:53,101: bs1_plc_dev.py--__init__/129 -- 4184 [MainThread] [device Device_1] Dremel: _instanceInfo = null
+2026-01-26 14:51:53,102: bs1_plc_dev.py--__init__/130 -- 4184 [MainThread] [device Device_1] Dremel: _API = {
+ "DeviceType": "IO Sequencer",
+ "InstanceName": "Dremel",
+ "Tasks": [
+  {
+   "TaskName": "Run Program",
+   "Parameters": [
+    {
+     "ParamName": "Name",
+     "ParamType": "STRING",
+     "ParamDefault": ""
+    }
+   ]
+  },
+  {
+   "TaskName": "Set DO",
+   "Parameters": [
+    {
+     "ParamName": "DOName",
+     "ParamType": "STRING",
+     "ParamDefault": ""
+    },
+    {
+     "ParamName": "DOValue",
+     "ParamType": "BOOL",
+     "ParamDefault": true
+    }
+   ]
+  },
+  {
+   "TaskName": "Wait For DI",
+   "Parameters": [
+    {
+     "ParamName": "DIName",
+     "ParamType": "STRING",
+     "ParamDefault": ""
+    },
+    {
+     "ParamName": "DIValue",
+     "ParamType": "BOOL",
+     "ParamDefault": true
+    },
+    {
+     "ParamName": "DIMethod",
+     "ParamType": "NUMBER",
+     "ParamDefault": 0.0
+    }
+   ]
+  },
+  {
+   "TaskName": "Check DI",
+   "Parameters": [
+    {
+     "ParamName": "DIName",
+     "ParamType": "STRING",
+     "ParamDefault": ""
+    },
+    {
+     "ParamName": "DIValue",
+     "ParamType": "BOOL",
+     "ParamDefault": true
+    }
+   ]
+  }
+ ],
+ "DeviceInfo": []
+}
+2026-01-26 14:51:53,105: bs1_plc_dev.py--__init__/133 -- 4184 [MainThread] [device Device_1] PLCDev Dremel initialized. Device index = 2, devAPI size = 4 / {'DeviceType': 'IO Sequencer', 'InstanceName': 'Dremel', 'Tasks': [{'TaskName': 'Run Program', 'Parameters': [{'ParamName': 'Name', 'ParamType': 'STRING', 'ParamDefault': ''}]}, {'TaskName': 'Set DO', 'Parameters': [{'ParamName': 'DOName', 'ParamType': 'STRING', 'ParamDefault': ''}, {'ParamName': 'DOValue', 'ParamType': 'BOOL', 'ParamDefault': True}]}, {'TaskName': 'Wait For DI', 'Parameters': [{'ParamName': 'DIName', 'ParamType': 'STRING', 'ParamDefault': ''}, {'ParamName': 'DIValue', 'ParamType': 'BOOL', 'ParamDefault': True}, {'ParamName': 'DIMethod', 'ParamType': 'NUMBER', 'ParamDefault': 0.0}]}, {'TaskName': 'Check DI', 'Parameters': [{'ParamName': 'DIName', 'ParamType': 'STRING', 'ParamDefault': ''}, {'ParamName': 'DIValue', 'ParamType': 'BOOL', 'ParamDefault': True}]}], 'DeviceInfo': []}, devINFO size = 0 / None 
+2026-01-26 14:51:53,111: bs1_plc_dev.py--__init__/141 -- 4184 [MainThread] [device Device_1] PLCDev Dremel instance created. Total instances = 2
+2026-01-26 14:51:53,112: bs1_plc_dev.py--lookUpDev/203 -- 4184 [MainThread] PLCDev lookUpDev device Single IO: Found device at index 2
+2026-01-26 14:51:53,112: bs1_plc_dev.py--__init__/114 -- 4184 [MainThread] [device Device_2] PLCDev Single IO initialized with existing commADS instance
+2026-01-26 14:51:53,124: bs1_plc_dev.py--__init__/121 -- 4184 [MainThread] [device Device_2] PLCDev Single IO read _instanceInfo and _API from PLC for device index = 3: 
+2026-01-26 14:51:53,124: bs1_plc_dev.py--__init__/129 -- 4184 [MainThread] [device Device_2] Single IO: _instanceInfo = null
+2026-01-26 14:51:53,125: bs1_plc_dev.py--__init__/130 -- 4184 [MainThread] [device Device_2] Single IO: _API = {
+ "DeviceType": "Single IO Control",
+ "InstanceName": "Single IO",
+ "Tasks": [
+  {
+   "TaskName": "Set TRUE",
+   "Parameters": [
+    {
+     "ParamName": "WaitForInput",
+     "ParamType": "BOOL",
+     "ParamDefault": false
+    },
+    {
+     "ParamName": "Expected",
+     "ParamType": "BOOL",
+     "ParamDefault": false
+    },
+    {
+     "ParamName": "Timeout",
+     "ParamType": "NUMBER",
+     "ParamDefault": 500.0
+    },
+    {
+     "ParamName": "IsError",
+     "ParamType": "BOOL",
+     "ParamDefault": true
+    }
+   ]
+  },
+  {
+   "TaskName": "Set FALSE",
+   "Parameters": [
+    {
+     "ParamName": "Expected",
+     "ParamType": "BOOL",
+     "ParamDefault": false
+    },
+    {
+     "ParamName": "Timeout",
+     "ParamType": "NUMBER",
+     "ParamDefault": 500.0
+    },
+    {
+     "ParamName": "IsError",
+     "ParamType": "BOOL",
+     "ParamDefault": true
+    }
+   ]
+  },
+  {
+   "TaskName": "Wait TRUE",
+   "Parameters": [
+    {
+     "ParamName": "Timeout",
+     "ParamType": "NUMBER",
+     "ParamDefault": 500.0
+    },
+    {
+     "ParamName": "IsError",
+     "ParamType": "BOOL",
+     "ParamDefault": true
+    }
+   ]
+  },
+  {
+   "TaskName": "Wait FALSE",
+   "Parameters": [
+    {
+     "ParamName": "Timeout",
+     "ParamType": "NUMBER",
+     "ParamDefault": 500.0
+    },
+    {
+     "ParamName": "IsError",
+     "ParamType": "BOOL",
+     "ParamDefault": true
+    }
+   ]
+  },
+  {
+   "TaskName": "Check DI",
+   "Parameters": [
+    {
+     "ParamName": "Timeout",
+     "ParamType": "NUMBER",
+     "ParamDefault": 500.0
+    },
+    {
+     "ParamName": "IsError",
+     "ParamType": "BOOL",
+     "ParamDefault": true
+    },
+    {
+     "ParamName": "DIValue",
+     "ParamType": "BOOL",
+     "ParamDefault": true
+    }
+   ]
+  },
+  {
+   "TaskName": "Wait RE",
+   "Parameters": [
+    {
+     "ParamName": "Timeout",
+     "ParamType": "NUMBER",
+     "ParamDefault": 500.0
+    },
+    {
+     "ParamName": "IsError",
+     "ParamType": "BOOL",
+     "ParamDefault": true
+    }
+   ]
+  },
+  {
+   "TaskName": "Wait FE",
+   "Parameters": [
+    {
+     "ParamName": "Timeout",
+     "ParamType": "NUMBER",
+     "ParamDefault": 500.0
+    },
+    {
+     "ParamName": "IsError",
+     "ParamType": "BOOL",
+     "ParamDefault": true
+    }
+   ]
+  }
+ ],
+ "DeviceInfo": []
+}
+2026-01-26 14:51:53,131: bs1_plc_dev.py--__init__/133 -- 4184 [MainThread] [device Device_2] PLCDev Single IO initialized. Device index = 3, devAPI size = 4 / {'DeviceType': 'Single IO Control', 'InstanceName': 'Single IO', 'Tasks': [{'TaskName': 'Set TRUE', 'Parameters': [{'ParamName': 'WaitForInput', 'ParamType': 'BOOL', 'ParamDefault': False}, {'ParamName': 'Expected', 'ParamType': 'BOOL', 'ParamDefault': False}, {'ParamName': 'Timeout', 'ParamType': 'NUMBER', 'ParamDefault': 500.0}, {'ParamName': 'IsError', 'ParamType': 'BOOL', 'ParamDefault': True}]}, {'TaskName': 'Set FALSE', 'Parameters': [{'ParamName': 'Expected', 'ParamType': 'BOOL', 'ParamDefault': False}, {'ParamName': 'Timeout', 'ParamType': 'NUMBER', 'ParamDefault': 500.0}, {'ParamName': 'IsError', 'ParamType': 'BOOL', 'ParamDefault': True}]}, {'TaskName': 'Wait TRUE', 'Parameters': [{'ParamName': 'Timeout', 'ParamType': 'NUMBER', 'ParamDefault': 500.0}, {'ParamName': 'IsError', 'ParamType': 'BOOL', 'ParamDefault': True}]}, {'TaskName': 'Wait FALSE', 'Parameters': [{'ParamName': 'Timeout', 'ParamType': 'NUMBER', 'ParamDefault': 500.0}, {'ParamName': 'IsError', 'ParamType': 'BOOL', 'ParamDefault': True}]}, {'TaskName': 'Check DI', 'Parameters': [{'ParamName': 'Timeout', 'ParamType': 'NUMBER', 'ParamDefault': 500.0}, {'ParamName': 'IsError', 'ParamType': 'BOOL', 'ParamDefault': True}, {'ParamName': 'DIValue', 'ParamType': 'BOOL', 'ParamDefault': True}]}, {'TaskName': 'Wait RE', 'Parameters': [{'ParamName': 'Timeout', 'ParamType': 'NUMBER', 'ParamDefault': 500.0}, {'ParamName': 'IsError', 'ParamType': 'BOOL', 'ParamDefault': True}]}, {'TaskName': 'Wait FE', 'Parameters': [{'ParamName': 'Timeout', 'ParamType': 'NUMBER', 'ParamDefault': 500.0}, {'ParamName': 'IsError', 'ParamType': 'BOOL', 'ParamDefault': True}]}], 'DeviceInfo': []}, devINFO size = 0 / None 
+2026-01-26 14:51:53,136: bs1_plc_dev.py--__init__/141 -- 4184 [MainThread] [device Device_2] PLCDev Single IO instance created. Total instances = 3

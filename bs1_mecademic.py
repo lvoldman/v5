@@ -433,6 +433,8 @@ class robotMecademic(baseRobot):
     #         e_type, e_filename, e_line_number, e_message = exptTrace(ex)
     #         raise RuntimeError('Get Robot Position: {ex}')
         
+
+    # wrapper for MovePose with elbow check/set to avoid singularity and insure correct elbow position
     def wrMovePose(self, x:float, y:float, z:float, gamma:float):
         if x > 0 and self.__elbow < 0:
             self.__elbow = 1

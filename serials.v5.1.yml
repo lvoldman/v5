@@ -1,0 +1,124 @@
+# -------------------------- Physical device definitions --------------------------
+NODES:                               # Available hardware devices                                   
+                                        # Device serial numbers and IPs
+    PLCDEV:
+        COINING_PLC:
+            # REMOTE_IP: '192.168.10.153'
+            # ADS_NETID: '192.168.137.1.1.1'
+            REMOTE_IP: '192.168.10.96'
+            ADS_NETID: '192.168.10.96.1.1'        
+
+    NI_DAQ: 
+        DAQ1: NI, 020DC90D                      # NI Data aquisition device
+    
+    PHIDGETS:                                   # Phidget devices   
+        PGH1: 700627                              # I/O module for general purpose inputs/outputs
+        PGH2: 710613                              # Relay module for high power outputs
+
+    MAXON:
+        MX1: 1073807704                       # 0x40010158 / Node 1 gripper
+        MX2: 1073832595                       # 0x40016293  / Back trolley screw gripper
+        MX3: 1073833028                       # 0x40016444  /   Front trolley screw gripper   
+        MX4: 1073780231                       # 0x40009606  - Node 2  / Front trolley roller
+        MX5: 1073833029                       # 0x40016445  - Node 5  / back trolley roller
+
+    ZABER:                                 # Zaber devices
+        ZAB1: 128517                              # 1  Local X axis
+        ZAB2: 128717                              # 2  Local Y axis
+        ZAB3: 128723                              # 3  Local Z axis
+        ZAB4: 128758                              # 4  Local A axis
+        ZAB5: 128759                              # 5  Local B axis
+    
+    MARCO:                           # Marco dispenser devices
+        MRC1: 192.168.1.214:5020
+
+    IP_CAMERA:                          # IP Cameras    
+        IPCAM1: 192.168.230.55:1502
+
+    MECADEMIC:                       # Mecademic robot
+        MCDMC1: 192.168.0.100
+
+    JTSE:                       # JTSE Hotair station
+        JT1: JTSE
+    
+    DH_ROBOTICS:                       # DH Robotics devices
+        DHR1: 8838
+        DHR2: 8825
+
+    SQLITE:
+        SQLT1: .sqlite3               # initiation parameters database file
+
+    POSTGRESQL:
+        PGS1: localhost:5432         # PostgreSQL database connection parameters (other parameters like user, password, dbname are in params file)
+
+    NCT6102D:                     #  I/O by NCT6102D 
+        NCT1: .\\inpoutx64.dll      # DLL for accessing the hardware port
+
+# -------------------------- Physical to logical mapping --------------------------
+LOGICAL_DEVICES:                            # Logical device names used in the code
+    GRIPPER:                                    # Gripper axes   
+        Node1G: node=MX1                            #  0x40010158 / Node 1 gripper
+        BackTroG: node=MX2                            #  0x40016293  / Back trolley screw gripper
+        G3: node=MX3                            # 0x40016444  / Front trolley screw gripper
+
+
+    MOTOR:                                         # Stepper axes  & Rotators  servo 
+        
+        LocalX: node=ZAB1                              # 1  Local X axis
+        LocalY: node=ZAB2                              # 2  Local Y axis
+        LocalZ: node=ZAB3                              # 3  Local Z axis
+        LocalA: node=ZAB4                              # 4  Local A axis
+        LocalB: node=ZAB5                              # 5  Local B axis
+        M6: node=COINING_PLC, dev=Coining Axis            # Operated via PLC
+        M7: node=COINING_PLC, dev=Parallel Axis           # Operated via PLC
+        FRONT: node=MX4                       # 0x40009607  - Node 2  / Front trolley roller
+        BACK: node=MX5                       # 0x40016445  - Node 5  / back trolley roller
+        R3: node=COINING_PLC, dev=Correcting PCB       # Operated via PLC
+    CAM:                          # Cameras  
+        CAM1: node=IPCAM1
+
+    DISP:                        # Dispenser    
+        DISP1: node=MRC1
+
+
+    ROBOT:                       # Mecademic robot
+        ROB1: node=MCDMC1
+        
+    HOTAIR:
+        HA1: node=JT1
+
+    ROT_GRIPERS:                       # DH Robotics rotating Grippers
+        RG_LEFT: node=DHR1
+        RG_RIGHT: node=DHR2
+
+    DB:
+        DB_CTL: node=SQLT1
+        DB_MNG: node=PGS1
+
+    GPI:                              # inputs
+        DOOR: node=DAQ1, dev=port0.line0
+        EMERG: node=DAQ1, dev=port0.line1, NC
+        ON_OFF_BUTTON: node=DAQ1, dev=port0.line2
+        D1_D2_GRIPERS_TOGGLE:  node=DAQ1, dev=port0.line3
+        PISTON_HOME_SENSOR: node=COINING_PLC, dev=PISTON_HOME
+    GPO:                        # outputs 
+        PNEUMOATIC_VALVE_1: node=COINING_PLC, dev=PNEUMATIC_1, op=TRIGGER, disp=FALSE
+        PNEUMOATIC_VALVE_2: node=COINING_PLC, dev=PNEUMATIC_2, op=TRIGGER, disp=FALSE
+        ROTATE_PISTON: node=DAQ1, dev=port1.line0, op=ONOFF, disp=TRUE
+        GRIPPER_AIR: node=DAQ1, dev=port1.line1, op=TRIGGER, disp=FALSE
+        DOOR_LOCK: node=NCT1, dev=line0, op=ONOFF, disp=FALSE
+        
+
+    RELAY:
+        LIGHT_RED: node=PGH2, dev=7, op=ONOFF
+        JTSE_HOTAIR: node=PGH2, dev=0, op=TRIGGER
+        GREEN: node=PGH2, dev=1, op=ONOFF, disp=FALSE
+        YELLOW: node=PGH2, dev=2, op=ONOFF, disp=FALSE
+        RED: node=PGH2, dev=3, op=ONOFF, disp=FALSE
+        ALARM: node=PGH2, dev=4, op=TRIGGER, disp=FALSE
+        COGNEX_LIGHT: node=PGH2, dev=6, op=TRIGGER
+        
+
+
+
+  

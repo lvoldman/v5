@@ -13,6 +13,7 @@ import logging, datetime, sys, os, re
 from dataclasses import dataclass
 from queue import Queue 
 from collections import namedtuple
+import atexit
 import unicodedata, unidecode, struct
 uTranslate = lambda _str: logging.debug(unidecode.unidecode(_str))
 
@@ -25,7 +26,7 @@ logging.basicConfig(format=log_format, handlers=[
         # logging.FileHandler(logFileDate, mode="w")], encoding='utf-8', level=logging.DEBUG, datefmt="%H:%M:%S")
 
         # logging.FileHandler(logFileDate, mode="w", encoding = 'utf-8')], encoding = "utf8", level=logging.INFO)
-        logging.FileHandler(logFileDate, mode="w", encoding = 'utf-8')], encoding = "utf8", level=logging.WARNING)
+        logging.FileHandler(logFileDate, mode="w", encoding = 'utf-8')], encoding = "utf8", level=logging.DEBUG)
         
         # logging.FileHandler(logFileDate, mode="w"), ], encoding = "UTF-8", level=logging.DEBUG)
         # logging.FileHandler(logFileDate, mode="w")], level=logging.DEBUG)
@@ -34,16 +35,22 @@ logging.basicConfig(format=log_format, handlers=[
 # void_f = lambda a : a
 void_f = lambda a : None
 
+def logCleanup():                   # log cleanup at exit
+    print_log(f"Log cleanup")
+    logging.shutdown()               # Shutdown logging system
+
+# atexit.register(logging.shutdown)
+atexit.register(logCleanup)
 
 # print_log = logging.info
 # print_inf = logging.info
 # print_err = logging.info
 # print_DEBUG = logging.info
 
-print_log = logging.warning
+print_log = logging.info
 print_inf = logging.warning
-print_err = logging.warning
-print_DEBUG = logging.warning
+print_err = logging.error
+print_DEBUG = logging.debug
 
 
 

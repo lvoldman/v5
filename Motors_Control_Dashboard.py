@@ -3301,6 +3301,8 @@ def runTask(wTask:pm.WorkingTask, gui_task_list:pm.WorkingTasksList, process_man
 _DEBUG = False
 
 if __name__ == "__main__":
+    import logging
+
     if len(sys.argv) == 2:
         if sys.argv[1].strip().upper() == 'DEBUG':
             _DEBUG = True
@@ -3314,4 +3316,5 @@ if __name__ == "__main__":
     window = StartGUI(layout, sysDevs)
     workingCycle(window,  sysDevs)
     print_inf(f'Working cycle DONE')
+    logging.shutdown()
     sys.exit()

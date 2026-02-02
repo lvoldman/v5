@@ -32,7 +32,7 @@ import ast
 
 from bs1_utils import print_log, print_inf, print_err, print_DEBUG, exptTrace, s16, s32, num2binstr, set_parm, get_parm, void_f
 
-print_DEBUG = void_f
+# print_DEBUG = void_f
 
 from ctypes import *
 from ctypes import wintypes
@@ -40,28 +40,48 @@ from errorH import ErrTxt
 import threading
 from enum import Enum
 
-class DevType(Enum):
-    TIME_ROTATOR = 'SP'
-    DIST_ROTATOR = 'RT'
-    TROLLEY = 'TR'
-    GRIPPER = 'OBSOLETE'            # replaced by GRIPPERv3
-    GRIPPERv3 = 'GR'
-    ZABER = 'ZB'                    # stepper actuator
-    DAQ_NI = 'DAQ_NI'
+#  types of physical devices by vendor provided functionality
+
+class VendorDevTypes(Enum):
+    FAULHABBER = 'FAULHABBER'
+    MAXON = 'MAXON'
+    ZABER = 'ZABER'                    
+    NI_DAQ = 'NI_DAQ'
     HMP = 'HMP'
-    PHG = 'PHG'
-    CAM = 'CAM'
-    DH = 'DH'
-    MCDMC = 'MCDMC'
+    PHIDGETS = 'PHIDGETS'
+    IP_CAMERA = 'IP_CAMERA'
+    DH_ROBOTICS = 'DH_ROBOTICS'
+    MECADEMIC = 'MECADEMIC'
     MARCO = 'MARCO'
-    INTERLOCK = 'INTERLOCK'
-    IOCONTROL = 'IOCONTROL'
     JTSE = 'JTSE'
     DB = 'DB'
     PLCDEV = 'PLCDEV'
     SYS = 'SYS'
+    SQLITE = 'SQLITE'
+    POSTGRESQL = 'POSTGRESQL'
+    NCT6102D = 'NCT6102D'
 
-class pType(Enum):
+# device logical types by target functionality 
+class DevType(Enum):
+    MOTOR = 'MOTOR'# replaced by GRIPPERv3
+    CAM = 'CAM'
+    DISP = 'DISP'
+    ROBOT = 'ROBOT'
+    HOTAIR = 'HOTAIR'
+    ROT_GRIPPER = 'ROT_GRIPPER'       # like DH Robotics 
+    GRIPPER = 'GRIPPER'
+    DB = 'DB'
+    GPI = 'GPI'
+    GPO = 'GPO'
+    SYS = 'SYS'
+      
+class confParm(Enum):              # configuration type
+    NODE:str = 'node'      # node name    
+    DEV:str = 'dev'               # device (name, spec, etc)  
+    OP:str = 'op'               # operation (trigger, on/off, etc)
+    DISP:str = 'disp'       # show in GUI display (True/False)
+
+class pType(Enum):        # parameter type
     OP:str | bool = 'OP'      # operation / boolean in case of PHG ON/OFF/True/False
     PARM:str = 'PARM'         # parameter
     RET:str = 'RET'          # return value
@@ -69,18 +89,33 @@ class pType(Enum):
 # device command configuration dictionary type
 # devCmdCnfg: devType -> { 'OP': [op1, op2, ...], 'PARM': [parm1, parm2, ...] }, wher OP is an allowed operation list, 
 # PARM is a possible parameters list
+# RET is a possible return values list
+# operation codes:
+# MF - Move forward
+# MB - Move backward
+# MA - Move absolute
+# MR - Move relative
+# HO - Home
+# REL - Release
+# STALL - stall device until 
+# STOP - stop device motion
+# OPEN - open gripper
+# CLOSE - close gripper
+# CHECK - check camera detected object
+# CALIBRE - calibrate device with camera
+# TERM - terminate camera operation
+# ADD - add good part to database
+# RESET - reset parts database counters
+# UPDATE - update JTSE temperature status
+# ROBOT commands: Will be defined later
 
 devCmdCnfg: dict[DevType, dict[pType, list[str]]] = {
-    DevType.TROLLEY: {
-        pType.OP: ['ML', 'MR', 'HO', 'REL', 'STALL', 'STOP'],
+    DevType.MOTOR: {
+        pType.OP: ['MF', 'MB', 'MA', 'MR', 'HO', 'REL', 'STALL', 'STOP'],
         pType.PARM: ['position', 'velocity', 'stall'],
-        pType.RET: ['success', 'message', 'position']
+        pType.RET: ['success', 'message', 'position', 'velocity', 'state']
     },
-    DevType.ZABER: {
-        pType.OP: ['MA', 'MR', 'HO', 'VIBRATE', 'STOP'],
-        pType.PARM: ['position', 'velocity', 'distance'],
-        pType.RET: ['success', 'message', 'position']
-    },
+    
     DevType.CAM: {
         pType.OP: ['CHECK', 'CALIBRE', 'TERM'],
         pType.PARM: ['profile', 'abs', 'device'],
@@ -91,45 +126,40 @@ devCmdCnfg: dict[DevType, dict[pType, list[str]]] = {
         pType.PARM: ['good'],
         pType.RET: ['success', 'message', 'good', 'bad']
     },
-    DevType.DH: {
+    DevType.ROT_GRIPPER: {
         pType.OP: ['MA', 'MR', 'HO','OPEN', 'CLOSE', 'STOP'],
         pType.PARM: ['position', 'distance', 'velocity'],
         pType.RET: ['success', 'message', 'state', 'position']
     },
-    DevType.GRIPPERv3: {
+    DevType.GRIPPER: {
         pType.OP: ['OPEN', 'CLOSE', 'STOP'],
         pType.PARM: [],
         pType.RET: ['success', 'message', 'state']
     },
-    DevType.JTSE: {
+    DevType.HOTAIR: {
         pType.OP: ['UPDATE'],
         pType.PARM: [],
         pType.RET: ['success', 'message', 'temp']
     },
-    DevType.MCDMC: {
+    DevType.ROBOT: {
         pType.OP: ['PUT', 'PUTPCB', 'INSERTPCB', 'MOVESAFE', 'MOVEREL', 'MOVEABS', 'VACUUM', 'ACTIVATE', 'DEACTIVATE', 'VALIDATE', 'STOP' ],
         pType.PARM: ['p3d', 'vacuum', 'duration', 'velocity', 'x', 'y', 'z', 'alpha', 'beta', 'gamma'],
         pType.RET: ['success', 'message', 'x', 'y', 'z', 'alpha', 'beta', 'gamma', 'vacuum', 'valid_products']
     },
-    DevType.PHG: {                              # dev name is defined in devices configuration file (serials) 
-        pType.OP: ['ON', 'OFF','TRIG', True, False],   # ON/OFF for set state, TRIG/True/False for trigger/toggle
+    DevType.GPO: {                              # dev name is defined in devices configuration file (serials) 
+        pType.OP: ['TRUE', 'FALSE','TRIG'],   # ON/OFF for set state, TRIG/True/False for trigger/toggle
         pType.PARM: ['onoff'],
-        pType.RET: ['success', 'message', 'state', 'device']
+        pType.RET: ['success', 'message', 'state']
     }, 
-    DevType.DIST_ROTATOR: {
-        pType.OP: ['MA', 'ML', 'MR', 'MLC', 'MRC', 'HO', 'REL', 'STOP'],            
-        pType.PARM: ['position', 'velocity', 'duration', 'gpio_quickstop_polarity', 'stall'],
-        pType.RET: ['success', 'message', 'state', 'device']
-    },
-    DevType.TIME_ROTATOR: {
-        pType.OP: ['ML', 'MR', 'STOP', 'stall'],
-        pType.PARM: ['duration'],
-        pType.RET: ['success', 'message', 'position']
+    DevType.GPI: {                              # GP input device
+        pType.OP: ['GET', 'WAIT_RE', 'WAIT_FE'],   # Get current state, WAIT_RE - wait for rising edge, WAIT_FE - wait for falling edge
+        pType.PARM: [],
+        pType.RET: ['success', 'message', 'state']
     },
     DevType.SYS: {
         pType.OP: ['DELAY', 'PLAY_MEDIA'],
         pType.PARM: ['duration', 'file'],
-        pType.RET: ['success', 'message', 'position']
+        pType.RET: ['success', 'message']
     }
 }   
 # parameter type coercion dictionary
@@ -321,7 +351,81 @@ class Command:
         
         return True
         
+@dataclass
+class confDevCmd:
+    devType: DevType
+    cnfg: dict[confParm, str]
 
+
+    # _type: device type string
+    # nodes: list of node names (strings)
+    # cfg_str: configuration string in format 'par1:val1, par2:val2, ...'
+    @classmethod 
+    def parse_cmd(cls, _type:str, _name:str, nodes:list[str], cfg_str: str) -> confDevCmd:
+        print_DEBUG(f'confDevCmd.parse_cmd: type={_type}, name={_name}, nodes={nodes}, cfg_str={cfg_str}')
+        try:
+            if _type not in DevType.__members__:
+                raise ValueError(f'Invalid device type: {_type}, expected one of {list(DevType._member_names_)}')
+        
+            # if _name not in nodes:
+            #     raise ValueError(f'Invalid node name: {_name}, expected one of {nodes}')
+            
+            cfg_str = re.sub(r'\s*=\s*', '=', cfg_str)    # remove spaces around '='
+            cfg_str = re.sub(r'\s*,\s*', ' ', cfg_str)    # replace ',' with ' ' and remove spaces around ','
+            print_DEBUG(f'Parsing configuration command: type={_type}, name={_name}, cfg_str -> {cfg_str}')
+
+            dev_type = DevType(_type)
+
+            KV_RE = re.compile(r'^(?P<key>[A-Za-z_][\w-]*)=(?P<val>.*)$')
+                                            # capturing groups: 
+                                            # key:value pairs regex
+
+            tokens = shlex.split(cfg_str)         # supportes quoted strings
+            
+            print_DEBUG(f'Parsing config string: {cfg_str}, tokens={tokens}')
+
+            _cfg_dict: dict[str, dict[str, Any]] = dict()
+            _cfg_dict[_name] = dict()
+            for _token in tokens:                 # parse key:value pairs
+                km = KV_RE.match(_token)
+                if not km:                      # invalid format
+                    raise ValueError(f'Expected key=value, got: {_token!r}')
+                
+                _parm = km.group('key')         # parameter name
+                _val = km.group('val')          # parameter value
+
+                if '=' not in _token:
+                    raise ValueError(f'Expected key=value, got: {_token!r}')
+                
+                print_DEBUG(f'Parsed config token: parm={_parm}, val={_val}')
+
+                _coerce_value = Command.coerce(_val)
+                print_DEBUG(f'Coerced config value: parm={_parm}, val={_val} -> {_coerce_value} ({type(_coerce_value)})')
+                _cfg_dict[_name][_parm]  = _coerce_value
+
+                if not confParm.NODE.value in list(_cfg_dict[_name].keys()) or not _cfg_dict[_name][confParm.NODE.value] in nodes:   # validate node name
+                    print_DEBUG(f'record: {_cfg_dict[_name]}  keys: {list(_cfg_dict[_name].keys())}, value: {_cfg_dict[_name].get(confParm.NODE.value, None)}, nodes = {nodes}  ')
+                    raise ValueError(f'Invalid or missing node name: {_cfg_dict[_name].get(confParm.NODE.value, None)}, expected one of {nodes}')
+                
+                print_DEBUG(f'Parsed configuration dictionary: {_cfg_dict}')
+
+            
+        except Exception as ex:
+            exptTrace(ex)
+            raise ValueError(f'Error parsing configuration command: {_type}:{cfg_str}: {ex}')
+        
+        return confDevCmd(devType=dev_type, cnfg=_cfg_dict)
+
+    @classmethod 
+    def validate(cls, _type:str, _name:str, nodes:list[str], cfg_str: str) -> bool:
+        try:
+            _cmd = cls.parse_cmd(_type, _name, nodes, cfg_str)
+            print_log(f'Configuration command validated: {_cmd}')
+            return True
+        except Exception as ex:
+            exptTrace(ex)
+            print_err(f'Configuration command validation failed: {_type}, {_name}, {nodes}, {cfg_str}: {ex}')
+            return False
 
 #------------------------   UNITEST SECTION -----------------
 if __name__ == '__main__':
@@ -337,9 +441,22 @@ if __name__ == '__main__':
             exptTrace(ex)
             print(f'Exception : {ex}')
             
+    def test2(_type:str, _name:str, nodes:list[str], _cfg_str:str):
+        try:
+            cmd = confDevCmd.parse_cmd(_type, _name, nodes, _cfg_str)
+            print(f'Config Command parsed: devType={cmd.devType}, cnfg={cmd.cnfg}')
+            print(f'{cmd}')
+        except Exception as ex:
+            exptTrace(ex)
+            print(f'Exception : {ex}')
+
     print('Running bs2_DSL_cmd.py unitest ...')
     # _cmd = 'PHG.UV param1:val1 param2:val2 param3:123 param4:45.67 param5:True param6:None param7:[1,2,3] param8:{"key":"value"}'
-    _cmd = 'PHG.UV'
+    # _cmd = 'PHG.UV'
     
-    test(_cmd)
+    # test(_cmd)
 
+    # _cfg1 = 'node=DAQ1, dev=port1.line1, op=TRIGGER, disp=FALSE'
+    # test2('GPI', 'DOOR', ['DAQ1', 'DAQ2'], _cfg1)
+    _cfg2 = 'node=COINING_PLC, dev=PNEUMATIC_1, op=TRIGGER, disp=FALSE'
+    test2('GPO', 'PNEUMATIC_VALVE_1', ['COINING_PLC'], _cfg2)
